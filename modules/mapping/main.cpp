@@ -25,13 +25,19 @@ int main(int argc, char **argv)
 	numSteps  = atoi(argv[1]);
 #endif
 
-    pcl::PointCloud<PointColor>::Ptr curr_cloud(new pcl::PointCloud<PointColor>);
+    pcl::PointCloud<PointColor>::Ptr input_cloud(new pcl::PointCloud<PointColor>);
 	cv::Mat rgbIm;
 	PointCloudIO<PointColor> pio;
 	CloudOps<PointColor> co;
 
-	pio.getPointCloudAndIm(curr_cloud, rgbIm);
-	pio.savePointCloud(curr_cloud, "cloud.pcd");
+	if(pio.getPointCloudAndIm(input_cloud, rgbIm) < 0)
+	{
+		std::cerr << "Critical Error. Exiting..." << std::endl;
+		exit(-1);
+	}
+	pio.savePointCloud(input_cloud, "cloud.pcd");
+	
+	co.setInputCloud(input_cloud);
 
 	return 0;
 }

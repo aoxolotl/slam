@@ -22,12 +22,17 @@ template<typename PointT>
 class CloudOps
 {
 	private:
-		typedef typename pcl::template PointCloud<PointT>::Ptr curr_cloud;
+		typename pcl::template PointCloud<PointT>::Ptr curr_cloud;
 
 	public:
+		CloudOps()
+			:curr_cloud(new typename pcl::template PointCloud<PointT>)
+		{
+		}
+
 		void setInputCloud(typename pcl::template PointCloud<PointT>::Ptr cloud_in)
 		{
-			pcl::copyPointCloud(*cloud_in, *(this->curr_cloud));
+			pcl::copyPointCloud(*cloud_in, *curr_cloud);
 		}
 
 		void apply_transform(typename pcl::template PointCloud<PointT>::Ptr cloud_out, 
@@ -41,7 +46,7 @@ class CloudOps
 
 			transform.translation() << tx, ty, tz;
 
-			pcl::transformPointCloud(*(this->curr_cloud), *cloud_out, transform);
+			pcl::transformPointCloud(*curr_cloud, *cloud_out, transform);
 		}
 
 		/**
@@ -56,7 +61,7 @@ class CloudOps
 			pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 			typename pcl::template PointCloud<PointT>::Ptr cloud_filt(new typename pcl::template PointCloud<PointT>);
 			typename pcl::template PointCloud<PointT>::Ptr temp_cloud(new typename pcl::template PointCloud<PointT>);
-			pcl::copyPointCloud(*(this->curr_cloud), *temp_cloud);
+			pcl::copyPointCloud(*curr_cloud, *temp_cloud);
 			typename pcl::template SACSegmentation<PointT> seg;
 			typename pcl::template ExtractIndices<PointT> extr;
 			float min_points = 0.2f * temp_cloud->points.size();
@@ -162,7 +167,7 @@ class CloudOps
 		{
 			typename pcl::template NormalEstimation<PointT, PointN> ne;
 			typename pcl::search::template KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>); 
-			ne.setInputCloud(this->curr_cloud);
+			ne.setInputCloudcurr_cloud;
 			ne.setSearchMethod(tree);
 			ne.setRadiusSearch(0.008);
 			ne.compute(*normals_out);
@@ -173,7 +178,7 @@ class CloudOps
 		{
 			typename pcl::template BoundaryEstimation<PointT, PointN, PointB> est;
 
-			est.setInputCloud(this->curr_cloud);
+			est.setInputCloudcurr_cloud;
 			est.setInputNormals(normals_in);
 			est.setRadiusSearch(0.01);
 
@@ -189,7 +194,7 @@ class CloudOps
 
 			mls.setComputeNormals(true);
 
-			mls.setInputCloud(this->curr_cloud);
+			mls.setInputCloudcurr_cloud;
 			mls.setPolynomialFit(true);
 			mls.setSearchMethod(tree);
 			mls.setSearchRadius(0.03f);
