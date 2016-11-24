@@ -132,7 +132,10 @@ class PointCloudIO
 			pcl::io::savePCDFileASCII(cloud_name, *curr_cloud);
 		}
 
-		void saveImage(cv::Mat rgbIm, std::string im_name);
+		void saveImage(cv::Mat rgbIm, std::string im_name)
+		{
+			cv::imwrite(im_name, rgbIm);
+		}
 };
 
 #endif //POINTCLOUDIO_H
