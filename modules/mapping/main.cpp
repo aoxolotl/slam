@@ -7,7 +7,7 @@
 #include "dynamixel.h"
 #include "apriltag_utils.h"
 
-#define SERVO_ENABLE 0
+#define SERVO_ENABLE 1
 #define USE_APRILTAG 0
 
 int main(int argc, char **argv)
@@ -15,6 +15,7 @@ int main(int argc, char **argv)
     int deviceIndex = 0;
     int baudnum = 34;
 	int numSteps = 1;
+	float rot_ang_deg = 30.0f; // Rotation angle in degrees
 
 #if SERVO_ENABLE
 	if(argc < 2)
@@ -24,6 +25,15 @@ int main(int argc, char **argv)
 	}
 
 	numSteps  = atoi(argv[1]);
+
+	//Initialize servo
+	if(dxl_initialize(deviceIndex, baudnum) == 0)
+	{
+		std::cerr << "Error initiliazing servo. Exiting..." << std::endl;
+		exit(-1);
+	}
+
+	dxl_set_speed(254, 3.42f);
 #endif
 
     pcl::PointCloud<PointColor>::Ptr input_cloud(new pcl::PointCloud<PointColor>);
@@ -31,22 +41,53 @@ int main(int argc, char **argv)
 	PointCloudIO<PointColor> *pio = new PointCloudIO<PointColor>();
 	CloudOps<PointColor> *co = new CloudOps<PointColor>();
 
-	if(pio->getPointCloudAndIm(input_cloud, rgbIm) < 0)
+	// All the bounding rectangles
+	std::vector<cv::Rect> boundRectOut;
+
+	// Stack of all clouds
+	std::vector<pcl::PointCloud<PointColor>::Ptr> cloud_stack;
+
+	// Corner points
+	std::vector<Eigen::Vector4f> points_out;
+
+	for(int i = 0; i < numSteps; i++)
 	{
-		std::cerr << "Critical Error. Exiting..." << std::endl;
-		exit(-1);
+		
+#if SERVO_ENABLE
+		dxl_rotate_by(254, rot_ang_deg * i);
+		sleep(4);
+#endif
+		pcl::PointCloud<PointColor>::Ptr out_cloud(new pcl::PointCloud<PointColor>);
+
+		if(pio->getPointCloudAndIm(input_cloud, rgbIm) < 0)
+		{
+			std::cerr << "Critical Error. Exiting..." << std::endl;
+			exit(-1);
+		}
+		pio->savePointCloud(input_cloud, "cloud.pcd");
+		pio->saveImage(rgbIm, "rgb.png");
+
+		co->setInputCloud(input_cloud);
+		co->getIntersectionPoints(points_out, 0.005f);
+
+#if SERVO_ENABLE
+		co->apply_transform(out_cloud, 0, 0, 0, i * rot_ang_deg);
+		cloud_stack.push_back(out_cloud);
+#endif
+
+		WindowDetector *wd = new WindowDetector("resources/model.yml");
+		if(wd->readImage("rgb.png") > 0)
+		{
+			wd->detectEdges();
+			wd->detectRectangles(boundRectOut, true);
+			// TODO: Find corresponding rectangle in point cloud
+		}
 	}
-	pio->savePointCloud(input_cloud, "cloud.pcd");
-	pio->saveImage(rgbIm, "rgb.png");
-	
-	co->setInputCloud(input_cloud);
 
-	WindowDetector *wd = new WindowDetector("resources/model.yml");
-	if(wd->readImage("rgb.png") > 0)
-	{
-		wd->detectEdges();
-		wd->detectRectangles(true);
-	}	
+#if SERVO_ENABLE
+	pcl::PointCloud<PointColor>::Ptr stitched_cloud(new pcl::PointCloud<PointColor>);
+	co->combineClouds(cloud_stack, stitched_cloud);
+#endif
 
-	return 0;
+	return 0; 
 }

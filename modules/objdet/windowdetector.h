@@ -49,7 +49,7 @@ class WindowDetector
 		 * for debugging
 		 * TODO: Find a way to get rectangle coordinates.
 		 */
-		void detectRectangles(bool debug = false);
+		void detectRectangles(std::vector<cv::Rect> &boundRectOut, bool debug = false);
 
 		/**
 		 * Ain't nothing but a destructor.

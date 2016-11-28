@@ -150,13 +150,22 @@ class CloudOps
 		 * @param[out] points_out Coordinates of points
 		 * @param[in] epsilon tolerance value
 		 */
-		void getIntersectionPoints(std::vector<pcl::ModelCoefficients::Ptr> coeffs_in,
-				std::vector<Eigen::Vector4f> &points_out, double epsilon)
+		void getIntersectionPoints(std::vector<Eigen::Vector4f> &points_out, double epsilon)
 		{
+			/// Segment planes
+			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
+			std::vector<pcl::ModelCoefficients::Ptr> coeffs_out;
+			segmentPlanes(planes_out, coeffs_out);
+
+			/// Get intersection lines
+			std::vector<pcl::ModelCoefficients::Ptr> line_coeffs;
+			getIntersectionLines(coeffs_out, line_coeffs);
+
+			/// Get Intersection points
 			Eigen::Vector4f temp_point;
-			for(int i = 0; i < (coeffs_in.size() - 1); i++)
+			for(int i = 0; i < (coeffs_out.size() - 1); i++)
 			{
-				if(pcl::lineWithLineIntersection(*coeffs_in[i], *coeffs_in[i+1], temp_point, epsilon))
+				if(pcl::lineWithLineIntersection(*coeffs_out[i], *coeffs_out[i+1], temp_point, epsilon))
 				{
 					points_out.push_back(temp_point);
 				}

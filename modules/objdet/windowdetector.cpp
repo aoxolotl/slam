@@ -30,7 +30,8 @@ void WindowDetector::detectEdges()
 	edgeIm.convertTo(edgeIm, CV_8UC1, 255);
 }
 
-void WindowDetector::detectRectangles(bool debug)
+void WindowDetector::detectRectangles(std::vector<cv::Rect> &boundRectOut,
+		bool debug)
 {
 	if(debug)
 		cv::imwrite("edges.png", edgeIm);
@@ -62,7 +63,10 @@ void WindowDetector::detectRectangles(bool debug)
 		float area = boundRect[i].width * boundRect[i].height;
 
 		if((aspect_ratio > 0.2f) && (aspect_ratio < 2.0f) && (area > 3000.0f))
+		{
+			boundRectOut.push_back(boundRect[i]);
 			cv::rectangle(inputIm, boundRect[i].tl(), boundRect[i].br(), cv::Scalar(0, 255, 0), 2, 6, 0);
+		}
 	}
 
 	if(debug)
