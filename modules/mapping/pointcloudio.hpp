@@ -23,8 +23,7 @@ class PointCloudIO
 		{
 			libfreenect2::Freenect2 freenect2;
 			libfreenect2::Freenect2Device *dev = 0;
-			libfreenect2::PacketPipeline *pipeline = 0;
-			std::string serial = "";
+			libfreenect2::PacketPipeline *pipeline = 0; std::string serial = "";
 
 			cv::Mat grayMat;
 
@@ -135,6 +134,11 @@ class PointCloudIO
 		void saveImage(cv::Mat rgbIm, std::string im_name)
 		{
 			cv::imwrite(im_name, rgbIm);
+		}
+
+		~PointCloudIO()
+		{
+			delete cloud_in;
 		}
 };
 

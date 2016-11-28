@@ -68,3 +68,8 @@ void WindowDetector::detectRectangles(bool debug)
 	if(debug)
 		cv::imwrite("rectangles.png", inputIm);
 }
+
+WindowDetector::~WindowDetector()
+{
+	delete seDetect;
+}

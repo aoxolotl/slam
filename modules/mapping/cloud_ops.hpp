@@ -278,5 +278,10 @@ class CloudOps
 			}
 		}
 
+		~CloudOps()
+		{
+			delete curr_cloud;
+		}
+
 };
 #endif //CLOUD_OPS

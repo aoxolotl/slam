@@ -3,6 +3,7 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include "pointcloudio.hpp"
 #include "cloud_ops.hpp"
+#include "../objdet/windowdetector.h"
 #include "dynamixel.h"
 #include "apriltag_utils.h"
 
@@ -27,17 +28,25 @@ int main(int argc, char **argv)
 
     pcl::PointCloud<PointColor>::Ptr input_cloud(new pcl::PointCloud<PointColor>);
 	cv::Mat rgbIm;
-	PointCloudIO<PointColor> pio;
-	CloudOps<PointColor> co;
+	PointCloudIO<PointColor> *pio = new PointCloudIO<PointColor>();
+	CloudOps<PointColor> *co = new CloudOps<PointColor>();
 
-	if(pio.getPointCloudAndIm(input_cloud, rgbIm) < 0)
+	if(pio->getPointCloudAndIm(input_cloud, rgbIm) < 0)
 	{
 		std::cerr << "Critical Error. Exiting..." << std::endl;
 		exit(-1);
 	}
-	pio.savePointCloud(input_cloud, "cloud.pcd");
+	pio->savePointCloud(input_cloud, "cloud.pcd");
+	pio->saveImage(rgbIm, "rgb.png");
 	
-	co.setInputCloud(input_cloud);
+	co->setInputCloud(input_cloud);
+
+	WindowDetector *wd = new WindowDetector("resources/model.yml");
+	if(wd->readImage("rgb.png") > 0)
+	{
+		wd->detectEdges();
+		wd->detectRectangles(true);
+	}	
 
 	return 0;
 }

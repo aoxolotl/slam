@@ -29,7 +29,7 @@ class WindowDetector
 		WindowDetector(std::string model_file)
 			:seDetect(cv::ximgproc::createStructuredEdgeDetection(model_file))
 		{}
-		
+
 		/**
 		 * Reads image from file, loads into private variable 
 		 * and converts to float datatype.
@@ -50,4 +50,9 @@ class WindowDetector
 		 * TODO: Find a way to get rectangle coordinates.
 		 */
 		void detectRectangles(bool debug = false);
+
+		/**
+		 * Ain't nothing but a destructor.
+		 */
+		~WindowDetector();
 };
