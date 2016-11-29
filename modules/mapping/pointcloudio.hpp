@@ -18,6 +18,11 @@ class PointCloudIO
 	public:
 		typename pcl::template PointCloud<PointT>::Ptr cloud_in;
 	
+		/**
+		 * @brief Grab pointcloud using kinect and store it in cloud_in.
+		 * Grabs both pointcloud and the associated rgbImage.
+		 * TODO: Replace with OpenNI
+		 */
 		int getPointCloudAndIm(typename pcl::template PointCloud<PointT>::Ptr curr_cloud, 
 				cv::Mat &rgbIm)
 		{
@@ -125,17 +130,30 @@ class PointCloudIO
 			return 0;
 		}
 
+		/**
+		 * @brief Save point cloud to pcd file
+		 *
+		 * TODO: Add options for other formats.
+		 */
 		void savePointCloud(typename pcl::template PointCloud<PointT>::Ptr curr_cloud, 
 				std::string cloud_name)
 		{
 			pcl::io::savePCDFileASCII(cloud_name, *curr_cloud);
 		}
 
+		/**
+		 * @brief Save rgb image to png file
+		 *
+		 * TODO: Add options for other formats.
+		 */
 		void saveImage(cv::Mat rgbIm, std::string im_name)
 		{
 			cv::imwrite(im_name, rgbIm);
 		}
 
+		/**
+		 * @brief Destructor
+		 */
 		~PointCloudIO()
 		{
 			delete cloud_in;

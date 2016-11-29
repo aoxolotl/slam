@@ -1,5 +1,10 @@
+/** 
+ * @file cloud_ops.hpp
+ * Template class for cloud operations
+ */
 #ifndef CLOUD_OPS_HPP
 #define CLOUD_OPS_HPP
+
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/intersections.h>
@@ -18,11 +23,19 @@
 
 #define SQ(a) (a * a)
 
+/**
+ * @class CloudOps
+ * @brief Template class for operations on point clouds
+ *
+ * After setting an initial point cloud, all operations such as
+ * rotation, translation, plane segmentation are all done on this 
+ * input cloud.
+ */
 template<typename PointT>
 class CloudOps
 {
 	private:
-		typename pcl::template PointCloud<PointT>::Ptr curr_cloud;
+		typename pcl::template PointCloud<PointT>::Ptr curr_cloud; //< input cloud
 
 	public:
 		CloudOps()
@@ -30,15 +43,29 @@ class CloudOps
 		{
 		}
 
+		/**
+		 * @brief Set the input cloud on which all operations are 
+		 * to be done.
+		 *
+		 * As opposed to the usual pcl implementation of setInputCloud,
+		 * a deep copy of the point cloud is done. This is clearer to 
+		 * deal with than a simple pointer copy.
+		 *
+		 * @param[in] cloud_in shared_ptr to input cloud
+		 */
 		void setInputCloud(typename pcl::template PointCloud<PointT>::Ptr cloud_in)
 		{
 			pcl::copyPointCloud(*cloud_in, *curr_cloud);
 		}
 
-		void apply_transform(typename pcl::template PointCloud<PointT>::Ptr cloud_out, 
-				float tx, float ty, float tz, float theta)
+		/**
+		 * @brief Apply translation and rotation to input cloud
+		 */
+		void apply_transform(float tx, float ty, float tz, float theta)
 		{
+			typename pcl::template PointCloud<PointT>::Ptr temp_cloud;
 			Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+
 			// Convert to radians
 			theta = theta / 180.0f * 3.14159f;
 			//Rotation only about x axis
@@ -46,12 +73,13 @@ class CloudOps
 
 			transform.translation() << tx, ty, tz;
 
-			pcl::transformPointCloud(*curr_cloud, *cloud_out, transform);
+			pcl::transformPointCloud(*curr_cloud, *temp_cloud, transform);
+			pcl::copyPointCloud(*temp_cloud, *curr_cloud);
+
 		}
 
 		/**
 		 * @brief Segment point cloud into planes
-		 * @param[in] cloud_in Input point cloud
 		 * @param[out] planes Point cloud of segmented planes
 		 * @param[out] coeffs_out Coefficients of segmented planes
 		 */
@@ -146,7 +174,6 @@ class CloudOps
 
 		/**
 		 * @brief Get points of intersection of lines
-		 * @param[in] coeffs_in Coefficients of lines
 		 * @param[out] points_out Coordinates of points
 		 * @param[in] epsilon tolerance value
 		 */
@@ -212,6 +239,14 @@ class CloudOps
 		}
 
 
+		/**
+		 * @brief Concatenate a bunch of clouds into one
+		 *
+		 * NOTE: Only function that doesn't deal with the input cloud.
+		 * TODO: Move it to cloud_utils.cpp or something
+		 * @param[in] cloud_stack a nice, fat stack of pointclouds.Yum!
+		 * @parma[out] cloud_out Concatenated output cloud
+		 */
 		void combineClouds(std::vector<typename pcl::template PointCloud<PointT>::Ptr> cloud_stack, 
 				typename pcl::template PointCloud<PointT>::Ptr cloud_out)
 		{
@@ -222,6 +257,9 @@ class CloudOps
 				*cloud_out += *cloud_stack[i];
 		}
 
+		/**
+		 * @deprecated Use windowdetector instead.
+		 */
 		void getWindows(typename pcl::template PointCloud<PointT>::Ptr plane,
 				typename pcl::template PointCloud<PointT>::Ptr windows_out,
 				PointT &minXY, PointT &maxXY)
@@ -287,6 +325,19 @@ class CloudOps
 			}
 		}
 
+		/**
+		 * @brief Print world coords to stdout
+		 */
+		void printWorldCoords(int index)
+		{	
+			std::cout << "X: " << curr_cloud->points[index].x << std::endl;
+			std::cout << "Y: " << curr_cloud->points[index].y << std::endl;
+			std::cout << "Z: " << curr_cloud->points[index].z << std::endl;
+		}
+
+		/**
+		 * @brief Ain't nothing but a destructor.
+		 */
 		~CloudOps()
 		{
 			delete curr_cloud;

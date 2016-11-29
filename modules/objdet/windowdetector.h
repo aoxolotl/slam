@@ -1,4 +1,6 @@
 /** @file windowdetector.h */
+#ifndef WINDOWDETECTOR_H
+#define WINDOWDETECTOR_H
 #include <opencv2/core/utility.hpp>
 #include <opencv2/ximgproc.hpp>
 #include <iostream>
@@ -23,7 +25,7 @@ class WindowDetector
 	
 	public:
 		/**
-		 * Initializes the struct edge detector.
+		 * @brief Initializes the struct edge detector.
 		 * @param model_file Path to the trained model file
 		 */
 		WindowDetector(std::string model_file)
@@ -31,7 +33,7 @@ class WindowDetector
 		{}
 
 		/**
-		 * Reads image from file, loads into private variable 
+		 * @brief Reads image from file, loads into private variable 
 		 * and converts to float datatype.
 		 * @param filepath Path to input image.
 		 * @return 0 on success, -1 on failure.
@@ -39,12 +41,12 @@ class WindowDetector
 		int readImage(std::string filepath);
 
 		/**
-		 * Detects edges in image using structured edge detection
+		 * @brief Detects edges in image using structured edge detection
 		 */
 		void detectEdges();
 
 		/**
-		 * Finds contours in edge image and detect rectangles.
+		 * @brief Finds contours in edge image and detect rectangles.
 		 * @param debug Verbose mode and dump intermediate images
 		 * for debugging
 		 * TODO: Find a way to get rectangle coordinates.
@@ -52,7 +54,9 @@ class WindowDetector
 		void detectRectangles(std::vector<cv::Rect> &boundRectOut, bool debug = false);
 
 		/**
-		 * Ain't nothing but a destructor.
+		 * @brief Ain't nothing but a destructor.
 		 */
 		~WindowDetector();
 };
+
+#endif // WINDOWDETECTOR_H

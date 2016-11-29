@@ -49,11 +49,11 @@ int main(int argc, char **argv)
 
 	// Corner points
 	std::vector<Eigen::Vector4f> points_out;
+	int i = 0;
 
-	for(int i = 0; i < numSteps; i++)
-	{
-		
 #if SERVO_ENABLE
+	for(i = 0; i < numSteps; i++)
+	{
 		dxl_rotate_by(254, rot_ang_deg * i);
 		sleep(4);
 #endif
@@ -68,12 +68,8 @@ int main(int argc, char **argv)
 		pio->saveImage(rgbIm, "rgb.png");
 
 		co->setInputCloud(input_cloud);
+		co->apply_transform(0, 0, 0, i * rot_ang_deg);
 		co->getIntersectionPoints(points_out, 0.005f);
-
-#if SERVO_ENABLE
-		co->apply_transform(out_cloud, 0, 0, 0, i * rot_ang_deg);
-		cloud_stack.push_back(out_cloud);
-#endif
 
 		WindowDetector *wd = new WindowDetector("resources/model.yml");
 		if(wd->readImage("rgb.png") > 0)
@@ -81,12 +77,26 @@ int main(int argc, char **argv)
 			wd->detectEdges();
 			wd->detectRectangles(boundRectOut, true);
 			// TODO: Find corresponding rectangle in point cloud
+			co->printWorldCoords(124);
 		}
+
+#if SERVO_ENABLE
+		cloud_stack.push_back(out_cloud);
 	}
+#endif
 
 #if SERVO_ENABLE
 	pcl::PointCloud<PointColor>::Ptr stitched_cloud(new pcl::PointCloud<PointColor>);
 	co->combineClouds(cloud_stack, stitched_cloud);
+#endif
+
+	// Visualizer
+	pcl::visualization::PCLVisualizer viewer;
+	
+#if SERVO_ENABLE
+	viewer.addPointCloud(stitched_cloud, "final_cloud");
+#else
+	viewer.addPointCloud(input_cloud, "input_cloud");
 #endif
 
 	return 0; 
