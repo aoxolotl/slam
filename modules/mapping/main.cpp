@@ -7,7 +7,7 @@
 #include "dynamixel.h"
 #include "apriltag_utils.h"
 
-#define SERVO_ENABLE 1
+#define SERVO_ENABLE 0
 #define USE_APRILTAG 0
 
 int main(int argc, char **argv)
@@ -65,18 +65,24 @@ int main(int argc, char **argv)
 			exit(-1);
 		}
 		pio->savePointCloud(input_cloud, "cloud.pcd");
+		std::cout << "Saved point cloud..." << std::endl;
 		pio->saveImage(rgbIm, "rgb.png");
 
-		co->setInputCloud(input_cloud);
-		co->apply_transform(0, 0, 0, i * rot_ang_deg);
-		co->getIntersectionPoints(points_out, 0.005f);
 
-		WindowDetector *wd = new WindowDetector("resources/model.yml");
-		if(wd->readImage("rgb.png") > 0)
+		co->setInputCloud(input_cloud);
+		std::cout << "Set input point cloud..." << std::endl;
+		co->apply_transform(0, 0, 0, i * rot_ang_deg);
+		std::cout << "applied transform" << std::endl;
+		co->getIntersectionPoints(points_out, 0.001);
+
+		WindowDetector *wd = new WindowDetector("model.yml");
+		std::cout << "Loaded model" << std::endl;
+		if(!wd->readImage("rgb.png"))
 		{
 			wd->detectEdges();
 			wd->detectRectangles(boundRectOut, true);
 			// TODO: Find corresponding rectangle in point cloud
+			std::cout << "Detected windows :" << boundRectOut.size() << std::endl;
 			co->printWorldCoords(124);
 		}
 

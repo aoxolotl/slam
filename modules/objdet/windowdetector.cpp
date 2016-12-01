@@ -24,7 +24,7 @@ int WindowDetector::readImage(std::string filepath)
 void WindowDetector::detectEdges()
 {
 	// Initialize edges
-	edgeIm = cv::Mat(inputIm.size(), inputIm.type());
+	//edgeIm = cv::Mat(inputIm.size(), inputIm.type());
 	seDetect->detectEdges(inputIm, edgeIm);
 
 	edgeIm.convertTo(edgeIm, CV_8UC1, 255);

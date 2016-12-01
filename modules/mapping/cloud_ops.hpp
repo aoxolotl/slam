@@ -63,7 +63,7 @@ class CloudOps
 		 */
 		void apply_transform(float tx, float ty, float tz, float theta)
 		{
-			typename pcl::template PointCloud<PointT>::Ptr temp_cloud;
+			typename pcl::template PointCloud<PointT>::Ptr temp_cloud(new typename pcl::template PointCloud<PointT>);
 			Eigen::Affine3f transform = Eigen::Affine3f::Identity();
 
 			// Convert to radians
@@ -137,7 +137,7 @@ class CloudOps
 		/**
 		 * @brief Get lines of intersection between planes
 		 * @param[in] coeffs_in Coefficients of planes
-		 * @param[out] coeffs_in Coefficients of lines
+		 * @param[out] line_coeffs Coefficients of lines
 		 */
 		void getIntersectionLines(std::vector<pcl::ModelCoefficients::Ptr> coeffs_in, 
 				std::vector<pcl::ModelCoefficients::Ptr> &line_coeffs)
@@ -185,24 +185,30 @@ class CloudOps
 			segmentPlanes(planes_out, coeffs_out);
 
 			/// Get intersection lines
-			std::vector<pcl::ModelCoefficients::Ptr> line_coeffs;
-			getIntersectionLines(coeffs_out, line_coeffs);
+			std::vector<pcl::ModelCoefficients::Ptr> line_coeffs_out;
+			getIntersectionLines(coeffs_out, line_coeffs_out);
 
 			/// Get Intersection points
 			Eigen::Vector4f temp_point;
 			Eigen::Vector4f mean(.0f, .0f, .0f, .0f), variance(.0f, .0f, .0f, .0f);
 			int i = 0;
-			for(i = 0; i < (coeffs_out.size() - 1); i++)
+			std::cout << "Get intersection points" << std::endl;
+			for(i = 0; i < (line_coeffs_out.size() - 1); i++)
 			{
-				if(pcl::lineWithLineIntersection(*coeffs_out[i], *coeffs_out[i+1], temp_point, epsilon))
+				if(pcl::lineWithLineIntersection(*line_coeffs_out[i], *line_coeffs_out[i+1], temp_point, epsilon))
 				{
 					points_out.push_back(temp_point);
+					std::cout << "meanx " << mean.x() << std::endl;
 					mean.x() += temp_point.x();
+					std::cout << "meanx after " << mean.x() << std::endl;
 					mean.y() += temp_point.y();
 					mean.z() += temp_point.z();
+
 				}
 			}
+			std::cout << "meanx " << mean.x() << std::endl;
 			mean.x() /= i;
+			std::cout << "meanx after " << mean.x() << std::endl;
 			mean.y() /= i;
 			mean.z() /= i;
 			/// Remove outliers from data
@@ -219,6 +225,7 @@ class CloudOps
 					final_mean.y() += points_out[i].y();
 					final_mean.z() += points_out[i].z();
 					++mean_count;
+					std::cout << "Added to mean2" << std::endl;
 				}
 			}
 			final_mean.x() /= mean_count;
