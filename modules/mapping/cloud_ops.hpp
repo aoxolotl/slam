@@ -190,13 +190,40 @@ class CloudOps
 
 			/// Get Intersection points
 			Eigen::Vector4f temp_point;
-			for(int i = 0; i < (coeffs_out.size() - 1); i++)
+			Eigen::Vector4f mean(.0f, .0f, .0f, .0f), variance(.0f, .0f, .0f, .0f);
+			int i = 0;
+			for(i = 0; i < (coeffs_out.size() - 1); i++)
 			{
 				if(pcl::lineWithLineIntersection(*coeffs_out[i], *coeffs_out[i+1], temp_point, epsilon))
 				{
 					points_out.push_back(temp_point);
+					mean.x() += temp_point.x();
+					mean.y() += temp_point.y();
+					mean.z() += temp_point.z();
 				}
 			}
+			mean.x() /= i;
+			mean.y() /= i;
+			mean.z() /= i;
+			/// Remove outliers from data
+			Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
+			int mean_count = 0;
+			for(int i = 0; i < points_out.size(); i++)
+			{
+				variance.x() = (points_out[i].x() - mean.x()) * (points_out[i].x() - mean.x());
+				variance.y() = (points_out[i].y() - mean.y()) * (points_out[i].y() - mean.y());
+				variance.z() = (points_out[i].z() - mean.z()) * (points_out[i].z() - mean.z());
+				if(variance.x() < 1.0f && variance.y() < 1.0f && variance.z() < 1.0f)
+				{
+					final_mean.x() += points_out[i].x();
+					final_mean.y() += points_out[i].y();
+					final_mean.z() += points_out[i].z();
+					++mean_count;
+				}
+			}
+			final_mean.x() /= mean_count;
+			final_mean.y() /= mean_count;
+			final_mean.z() /= mean_count;
 		}
 
 		void computeNormals(pcl::PointCloud<PointN>::Ptr normals_out)
