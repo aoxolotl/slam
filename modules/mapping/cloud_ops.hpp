@@ -34,10 +34,10 @@
 template<typename PointT>
 class CloudOps
 {
-	private:
-		typename pcl::template PointCloud<PointT>::Ptr curr_cloud; //< input cloud
 
 	public:
+		typename pcl::template PointCloud<PointT>::Ptr curr_cloud; //< input cloud
+
 		CloudOps()
 			:curr_cloud(new typename pcl::template PointCloud<PointT>)
 		{
@@ -177,7 +177,7 @@ class CloudOps
 		 * @param[out] points_out Coordinates of points
 		 * @param[in] epsilon tolerance value
 		 */
-		void getIntersectionPoints(std::vector<Eigen::Vector4f> &points_out, double epsilon)
+		Eigen::Vector4f getIntersectionPoints(std::vector<Eigen::Vector4f> &points_out, double epsilon)
 		{
 			/// Segment planes
 			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
@@ -191,46 +191,56 @@ class CloudOps
 			/// Get Intersection points
 			Eigen::Vector4f temp_point;
 			Eigen::Vector4f mean(.0f, .0f, .0f, .0f), variance(.0f, .0f, .0f, .0f);
-			int i = 0;
+			unsigned int mean_count = 0;
 			std::cout << "Get intersection points" << std::endl;
-			for(i = 0; i < (line_coeffs_out.size() - 1); i++)
+			for(int i = 0; i < (line_coeffs_out.size() - 1); i++)
 			{
 				if(pcl::lineWithLineIntersection(*line_coeffs_out[i], *line_coeffs_out[i+1], temp_point, epsilon))
 				{
 					points_out.push_back(temp_point);
-					std::cout << "meanx " << mean.x() << std::endl;
-					mean.x() += temp_point.x();
-					std::cout << "meanx after " << mean.x() << std::endl;
-					mean.y() += temp_point.y();
-					mean.z() += temp_point.z();
+					if(!(isnan(temp_point.x()) || isnan(temp_point.y())
+								|| isnan(temp_point.z())))
+					{
+						mean.x() += temp_point.x();
+						mean.y() += temp_point.y();
+						mean.z() += temp_point.z();
+						++mean_count;
+					}
 
 				}
 			}
-			std::cout << "meanx " << mean.x() << std::endl;
-			mean.x() /= i;
-			std::cout << "meanx after " << mean.x() << std::endl;
-			mean.y() /= i;
-			mean.z() /= i;
+			std::cout << "Num corners " << points_out.size() << std::endl;
+			if(mean_count)
+			{
+				mean.x() /= mean_count;
+				mean.y() /= mean_count;
+				mean.z() /= mean_count;
+			}
 			/// Remove outliers from data
 			Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
-			int mean_count = 0;
+			mean_count = 0;
 			for(int i = 0; i < points_out.size(); i++)
 			{
-				variance.x() = (points_out[i].x() - mean.x()) * (points_out[i].x() - mean.x());
-				variance.y() = (points_out[i].y() - mean.y()) * (points_out[i].y() - mean.y());
-				variance.z() = (points_out[i].z() - mean.z()) * (points_out[i].z() - mean.z());
-				if(variance.x() < 1.0f && variance.y() < 1.0f && variance.z() < 1.0f)
+				variance.x() = (points_out[i].x() - mean.x()) 
+					* (points_out[i].x() - mean.x());
+				variance.y() = (points_out[i].y() - mean.y()) 
+					* (points_out[i].y() - mean.y());
+				variance.z() = (points_out[i].z() - mean.z()) 
+					* (points_out[i].z() - mean.z());
+				if(variance.x() < .1f && variance.y() < .1f 
+						&& variance.z() < .1f)
 				{
 					final_mean.x() += points_out[i].x();
 					final_mean.y() += points_out[i].y();
 					final_mean.z() += points_out[i].z();
 					++mean_count;
-					std::cout << "Added to mean2" << std::endl;
 				}
 			}
 			final_mean.x() /= mean_count;
 			final_mean.y() /= mean_count;
 			final_mean.z() /= mean_count;
+
+			return final_mean;
 		}
 
 		void computeNormals(pcl::PointCloud<PointN>::Ptr normals_out)
@@ -284,9 +294,8 @@ class CloudOps
 		void combineClouds(std::vector<typename pcl::template PointCloud<PointT>::Ptr> cloud_stack, 
 				typename pcl::template PointCloud<PointT>::Ptr cloud_out)
 		{
-			pcl::PointCloud<PointN>::Ptr mls_points(new pcl::PointCloud<PointN>);
-
 			//Concatenate clouds
+			std::cout << "Size: " << cloud_stack.size() << std::endl;
 			for(int i = 0; i < cloud_stack.size(); ++i)
 				*cloud_out += *cloud_stack[i];
 		}

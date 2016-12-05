@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 #if SERVO_ENABLE
 	if(argc < 2)
 	{
-		std::cerr << "Usage: ./main numSteps(0-12)" << std::endl;
+		std::cerr << "Usage: ./main numSteps(0-13)" << std::endl;
 		exit(-1);
 	}
 
@@ -57,7 +57,6 @@ int main(int argc, char **argv)
 		dxl_rotate_by(254, rot_ang_deg * i);
 		sleep(4);
 #endif
-		pcl::PointCloud<PointColor>::Ptr out_cloud(new pcl::PointCloud<PointColor>);
 
 		if(pio->getPointCloudAndIm(input_cloud, rgbIm) < 0)
 		{
@@ -73,11 +72,11 @@ int main(int argc, char **argv)
 		std::cout << "Set input point cloud..." << std::endl;
 		co->apply_transform(0, 0, 0, i * rot_ang_deg);
 		std::cout << "applied transform" << std::endl;
-		co->getIntersectionPoints(points_out, 0.001);
+		Eigen::Vector4f final_mean = co->getIntersectionPoints(points_out, 0.001);
 
-		WindowDetector *wd = new WindowDetector("model.yml");
+		WindowDetector *wd = new WindowDetector("../resources/model.yml");
 		std::cout << "Loaded model" << std::endl;
-		if(!wd->readImage("rgb.png"))
+		if(!wd->readImage("gray.pgm"))
 		{
 			wd->detectEdges();
 			wd->detectRectangles(boundRectOut, true);
@@ -87,13 +86,15 @@ int main(int argc, char **argv)
 		}
 
 #if SERVO_ENABLE
-		cloud_stack.push_back(out_cloud);
+		cloud_stack.push_back(co->curr_cloud);
 	}
 #endif
 
 #if SERVO_ENABLE
 	pcl::PointCloud<PointColor>::Ptr stitched_cloud(new pcl::PointCloud<PointColor>);
-	co->combineClouds(cloud_stack, stitched_cloud);
+	for(int i = 0; i < cloud_stack.size(); ++i)
+		*stitched_cloud += *cloud_stack[i];
+	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
 #endif
 
 	// Visualizer
@@ -103,7 +104,16 @@ int main(int argc, char **argv)
 	viewer.addPointCloud(stitched_cloud, "final_cloud");
 #else
 	viewer.addPointCloud(input_cloud, "input_cloud");
+	pcl::PointXYZ center;
+
+	center.x = final_mean.x();
+	center.y = final_mean.y();
+	center.z = final_mean.z();
+
+	viewer.addSphere(center, 0.05, 1.0, 1.0, 1.0, "center1");
 #endif
+	while(!viewer.wasStopped())
+		viewer.spinOnce(100);
 
 	return 0; 
 }
