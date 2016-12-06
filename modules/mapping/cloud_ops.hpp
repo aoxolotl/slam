@@ -179,6 +179,7 @@ class CloudOps
 		 */
 		Eigen::Vector4f getIntersectionPoints(std::vector<Eigen::Vector4f> &points_out, double epsilon)
 		{
+			Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
 			/// Segment planes
 			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
 			std::vector<pcl::ModelCoefficients::Ptr> coeffs_out;
@@ -187,6 +188,14 @@ class CloudOps
 			/// Get intersection lines
 			std::vector<pcl::ModelCoefficients::Ptr> line_coeffs_out;
 			getIntersectionLines(coeffs_out, line_coeffs_out);
+
+			std::cout << "Num lines " << line_coeffs_out.size() << std::endl;
+
+			if(!line_coeffs_out.size())
+			{
+				std::cout << "No lines found. Starting next iteration" << std::endl;
+				return final_mean;
+			}
 
 			/// Get Intersection points
 			Eigen::Vector4f temp_point;
@@ -206,7 +215,6 @@ class CloudOps
 						mean.z() += temp_point.z();
 						++mean_count;
 					}
-
 				}
 			}
 			std::cout << "Num corners " << points_out.size() << std::endl;
@@ -217,7 +225,6 @@ class CloudOps
 				mean.z() /= mean_count;
 			}
 			/// Remove outliers from data
-			Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
 			mean_count = 0;
 			for(int i = 0; i < points_out.size(); i++)
 			{

@@ -7,7 +7,8 @@
 #include "dynamixel.h"
 #include "apriltag_utils.h"
 
-#define SERVO_ENABLE 0
+#define DEBUG 1
+#define SERVO_ENABLE 1
 #define USE_APRILTAG 0
 
 int main(int argc, char **argv)
@@ -45,7 +46,7 @@ int main(int argc, char **argv)
 	std::vector<cv::Rect> boundRectOut;
 
 	// Stack of all clouds
-	std::vector<pcl::PointCloud<PointColor>::Ptr> cloud_stack;
+	std::vector<pcl::PointCloud<PointColor> > cloud_stack;
 
 	// Corner points
 	std::vector<Eigen::Vector4f> points_out;
@@ -67,11 +68,19 @@ int main(int argc, char **argv)
 		std::cout << "Saved point cloud..." << std::endl;
 		pio->saveImage(rgbIm, "rgb.png");
 
-
 		co->setInputCloud(input_cloud);
 		std::cout << "Set input point cloud..." << std::endl;
 		co->apply_transform(0, 0, 0, i * rot_ang_deg);
 		std::cout << "applied transform" << std::endl;
+
+#if DEBUG
+		std::stringstream ss;
+		ss << "cloud_" << i << ".pcd";
+		pio->savePointCloud(co->curr_cloud, ss.str());
+		ss.clear();
+		ss.str("");
+		ss.str("");
+#endif
 		Eigen::Vector4f final_mean = co->getIntersectionPoints(points_out, 0.001);
 
 		WindowDetector *wd = new WindowDetector("../resources/model.yml");
@@ -79,21 +88,22 @@ int main(int argc, char **argv)
 		if(!wd->readImage("gray.pgm"))
 		{
 			wd->detectEdges();
-			wd->detectRectangles(boundRectOut, true);
+			wd->detectRectangles(boundRectOut, DEBUG);
 			// TODO: Find corresponding rectangle in point cloud
 			std::cout << "Detected windows :" << boundRectOut.size() << std::endl;
 			co->printWorldCoords(124);
 		}
 
 #if SERVO_ENABLE
-		cloud_stack.push_back(co->curr_cloud);
+		cloud_stack.push_back(*(co->curr_cloud));
+		input_cloud->clear();
 	}
 #endif
 
 #if SERVO_ENABLE
 	pcl::PointCloud<PointColor>::Ptr stitched_cloud(new pcl::PointCloud<PointColor>);
 	for(int i = 0; i < cloud_stack.size(); ++i)
-		*stitched_cloud += *cloud_stack[i];
+		*stitched_cloud += cloud_stack[i];
 	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
 #endif
 
