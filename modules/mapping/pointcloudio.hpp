@@ -79,7 +79,8 @@ class PointCloudIO
 			// registration
 			libfreenect2::Registration* registration = 
 				new libfreenect2::Registration(dev->getIrCameraParams(), dev->getColorCameraParams());
-			libfreenect2::Frame undistorted(512, 424, 4), registered(512, 424, 4);
+			libfreenect2::Frame undistorted(512, 424, 4), 
+				registered(512, 424, 4), bigdepth(1920, 1082, 4);
 
 			if(!listener.waitForNewFrame(frames, 10*1000)) // 10 seconds 
 			{ 
@@ -91,10 +92,12 @@ class PointCloudIO
 			libfreenect2::Frame *ir = frames[libfreenect2::Frame::Ir]; 
 			libfreenect2::Frame *depth = frames[libfreenect2::Frame::Depth]; 
 
-			registration->apply(rgb, depth, &undistorted, &registered);
+			registration->apply(rgb, depth, &undistorted, &registered,
+					true, &bigdepth);
 
 			// Deal with rgb frame
-			cv::Mat(registered.height, registered.width, CV_8UC4, registered.data).copyTo(rgbIm);
+			cv::Mat(bigdepth.height, bigdepth.width, 
+					CV_8UC4, bigdepth.data).copyTo(rgbIm);
 			cv::cvtColor(rgbIm, grayMat, CV_BGRA2GRAY);
 
 			// Reflect image before saving
@@ -111,7 +114,8 @@ class PointCloudIO
 				for(int c = 0; c < 512; ++c)
 				{
 					idx = idt + c;
-					registration->getPointXYZRGB(&undistorted, &registered, r, c, x, y, z, rgbData);
+					registration->getPointXYZRGB(&undistorted, &registered, 
+							r, c, x, y, z, rgbData);
 					//Skip if NaN values
 					if(!(isnan(x) || isnan(y) || isnan(z)))
 					{

@@ -7,7 +7,6 @@
 #include "dynamixel.h"
 #include "apriltag_utils.h"
 
-#define DEBUG 1
 #define SERVO_ENABLE 1
 #define USE_APRILTAG 0
 
@@ -47,9 +46,10 @@ int main(int argc, char **argv)
 
 	// Stack of all clouds
 	std::vector<pcl::PointCloud<PointColor> > cloud_stack;
+	std::vector<pcl::ModelCoefficients::Ptr> line_coeffs_out;
 
 	// Corner points
-	std::vector<Eigen::Vector4f> points_out;
+	std::vector<Eigen::Vector4f> corners;
 	int i = 0;
 
 #if SERVO_ENABLE
@@ -64,31 +64,23 @@ int main(int argc, char **argv)
 			std::cerr << "Critical Error. Exiting..." << std::endl;
 			exit(-1);
 		}
-		pio->savePointCloud(input_cloud, "cloud.pcd");
 		std::cout << "Saved point cloud..." << std::endl;
 		pio->saveImage(rgbIm, "rgb.png");
 
 		co->setInputCloud(input_cloud);
 		std::cout << "Set input point cloud..." << std::endl;
+		//co->removeOutliers();
 		co->apply_transform(0, 0, 0, i * rot_ang_deg);
 		std::cout << "applied transform" << std::endl;
 
-#if DEBUG
-		std::stringstream ss;
-		ss << "cloud_" << i << ".pcd";
-		pio->savePointCloud(co->curr_cloud, ss.str());
-		ss.clear();
-		ss.str("");
-		ss.str("");
-#endif
-		Eigen::Vector4f final_mean = co->getIntersectionPoints(points_out, 0.001);
+		co->getIntersectionPoints(corners, line_coeffs_out, 0.001);
 
 		WindowDetector *wd = new WindowDetector("../resources/model.yml");
 		std::cout << "Loaded model" << std::endl;
 		if(!wd->readImage("gray.pgm"))
 		{
 			wd->detectEdges();
-			wd->detectRectangles(boundRectOut, DEBUG);
+			wd->detectRectangles(boundRectOut, true);
 			// TODO: Find corresponding rectangle in point cloud
 			std::cout << "Detected windows :" << boundRectOut.size() << std::endl;
 			co->printWorldCoords(124);
@@ -112,15 +104,41 @@ int main(int argc, char **argv)
 	
 #if SERVO_ENABLE
 	viewer.addPointCloud(stitched_cloud, "final_cloud");
+	std::ofstream corner_file;
+	corner_file.open("corners.csv");
+	for(int i = 0; i < corners.size(); ++i)
+	{
+		pcl::PointXYZ centre;
+		std::stringstream ss;
+
+		centre.x = corners[i].x();
+		centre.y = corners[i].y();
+		centre.z = corners[i].z();
+		corner_file << i << ":"
+			<< corners[i].x() << ","
+			<< corners[i].y() << ","
+			<< corners[i].z() << ","
+			<< std::endl;
+
+		ss << "centre_" << i;
+
+		viewer.addSphere(centre, 0.05, 1.0, 1.0, 1.0, ss.str());
+		ss.clear();
+		ss.str("");
+	}
+	corner_file.close();
+	
+	for(int i = 0; i < line_coeffs_out.size(); ++i)
+	{
+		std::stringstream ss;
+
+		ss << "line_" << i;
+		viewer.addLine(*(line_coeffs_out[i]), ss.str());
+		ss.clear();
+		ss.str("");
+	}
 #else
 	viewer.addPointCloud(input_cloud, "input_cloud");
-	pcl::PointXYZ center;
-
-	center.x = final_mean.x();
-	center.y = final_mean.y();
-	center.z = final_mean.z();
-
-	viewer.addSphere(center, 0.05, 1.0, 1.0, 1.0, "center1");
 #endif
 	while(!viewer.wasStopped())
 		viewer.spinOnce(100);

@@ -8,8 +8,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/intersections.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/filter.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/features/boundary.h>
 #include <pcl/features/normal_3d.h>
@@ -59,11 +58,33 @@ class CloudOps
 		}
 
 		/**
+		 * @brief Remove noisy data
+		 *
+		 * Removes outliers in a neighbourhood. 
+		 * Runs very slowly.
+		 *
+		 * @param nbrhd The search radius of the outlier remover
+		 */
+		void removeOutliers(unsigned int nbrhd)
+		{
+			typename pcl::template PointCloud<PointT>::Ptr 
+				temp_cloud(new typename pcl::template PointCloud<PointT>);
+			pcl::StatisticalOutlierRemoval<PointT> sor;
+
+			sor.setInputCloud(curr_cloud);
+			sor.setMeanK(nbrhd);
+			sor.setStddevMulThresh(1.0);
+			sor.filter(*temp_cloud);
+			pcl::copyPointCloud(*temp_cloud, *curr_cloud);
+		}
+
+		/**
 		 * @brief Apply translation and rotation to input cloud
 		 */
 		void apply_transform(float tx, float ty, float tz, float theta)
 		{
-			typename pcl::template PointCloud<PointT>::Ptr temp_cloud(new typename pcl::template PointCloud<PointT>);
+			typename pcl::template PointCloud<PointT>::Ptr 
+				temp_cloud(new typename pcl::template PointCloud<PointT>);
 			Eigen::Affine3f transform = Eigen::Affine3f::Identity();
 
 			// Convert to radians
@@ -87,9 +108,14 @@ class CloudOps
 				std::vector<pcl::ModelCoefficients::Ptr> &coeffs_out)
 		{
 			pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-			typename pcl::template PointCloud<PointT>::Ptr cloud_filt(new typename pcl::template PointCloud<PointT>);
-			typename pcl::template PointCloud<PointT>::Ptr temp_cloud(new typename pcl::template PointCloud<PointT>);
+			typename pcl::template PointCloud<PointT>::Ptr 
+				cloud_filt(new typename pcl::template PointCloud<PointT>);
+			typename pcl::template PointCloud<PointT>::Ptr 
+				temp_cloud(new typename pcl::template PointCloud<PointT>);
+
+			// Retaining original cloud
 			pcl::copyPointCloud(*curr_cloud, *temp_cloud);
+
 			typename pcl::template SACSegmentation<PointT> seg;
 			typename pcl::template ExtractIndices<PointT> extr;
 			float min_points = 0.2f * temp_cloud->points.size();
@@ -103,7 +129,9 @@ class CloudOps
 
 			while(temp_cloud->points.size() > min_points)
 			{
-				pcl::ModelCoefficients::Ptr coeffs(new pcl::ModelCoefficients);
+				pcl::ModelCoefficients::Ptr 
+					coeffs(new pcl::ModelCoefficients);
+
 				seg.setInputCloud(temp_cloud);
 				seg.segment(*inliers, *coeffs);
 
@@ -177,16 +205,19 @@ class CloudOps
 		 * @param[out] points_out Coordinates of points
 		 * @param[in] epsilon tolerance value
 		 */
-		Eigen::Vector4f getIntersectionPoints(std::vector<Eigen::Vector4f> &points_out, double epsilon)
+		void getIntersectionPoints(std::vector<Eigen::Vector4f> &corners, 
+				std::vector<pcl::ModelCoefficients::Ptr> &line_coeffs_out, 
+				double epsilon)
 		{
 			Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
+			std::vector<Eigen::Vector4f> points_out;
 			/// Segment planes
 			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
 			std::vector<pcl::ModelCoefficients::Ptr> coeffs_out;
 			segmentPlanes(planes_out, coeffs_out);
 
 			/// Get intersection lines
-			std::vector<pcl::ModelCoefficients::Ptr> line_coeffs_out;
+			
 			getIntersectionLines(coeffs_out, line_coeffs_out);
 
 			std::cout << "Num lines " << line_coeffs_out.size() << std::endl;
@@ -194,7 +225,7 @@ class CloudOps
 			if(!line_coeffs_out.size())
 			{
 				std::cout << "No lines found. Starting next iteration" << std::endl;
-				return final_mean;
+				return ;
 			}
 
 			/// Get Intersection points
@@ -217,16 +248,16 @@ class CloudOps
 					}
 				}
 			}
-			std::cout << "Num corners " << points_out.size() << std::endl;
+			std::cout << "Num corners " << mean_count << std::endl;
 			if(mean_count)
 			{
 				mean.x() /= mean_count;
 				mean.y() /= mean_count;
 				mean.z() /= mean_count;
 			}
-			/// Remove outliers from data
-			mean_count = 0;
-			for(int i = 0; i < points_out.size(); i++)
+			// Remove outliers from data
+			int final_mean_count = 0;
+			for(int i = 0; i < mean_count; i++)
 			{
 				variance.x() = (points_out[i].x() - mean.x()) 
 					* (points_out[i].x() - mean.x());
@@ -240,14 +271,18 @@ class CloudOps
 					final_mean.x() += points_out[i].x();
 					final_mean.y() += points_out[i].y();
 					final_mean.z() += points_out[i].z();
-					++mean_count;
+					++final_mean_count;
 				}
 			}
-			final_mean.x() /= mean_count;
-			final_mean.y() /= mean_count;
-			final_mean.z() /= mean_count;
+			std::cout << "Num corners " << final_mean_count << std::endl;
+			if(final_mean_count)
+			{
+				final_mean.x() /= final_mean_count;
+				final_mean.y() /= final_mean_count;
+				final_mean.z() /= final_mean_count;
+				corners.push_back(final_mean);
+			}
 
-			return final_mean;
 		}
 
 		void computeNormals(pcl::PointCloud<PointN>::Ptr normals_out)
