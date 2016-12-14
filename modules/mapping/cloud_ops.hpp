@@ -6,20 +6,28 @@
 #define CLOUD_OPS_HPP
 
 #include <pcl/io/pcd_io.h>
+
 #include <pcl/common/transforms.h>
 #include <pcl/common/intersections.h>
-#include <pcl/filters/statistical_outlier_removal.h>
+
 #include <pcl/filters/extract_indices.h>
+#include <pcl/filters/voxel_grid.h>
+
 #include <pcl/features/boundary.h>
 #include <pcl/features/normal_3d.h>
+
+#include <pcl/registration/icp.h>
+#include <pcl/registration/icp_nl.h>
+
 #include <pcl/surface/mls.h>
+
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+
 #include <pcl/segmentation/sac_segmentation.h>
 #include <string>
 #include <iostream>
 #include "pcl_typedefs.h"
-
 #define SQ(a) (a * a)
 
 /**
@@ -33,12 +41,14 @@
 template<typename PointT>
 class CloudOps
 {
-
+	private:
+		typename pcl::template PointCloud<PointT>::Ptr prev_cloud; //< previous cloud
 	public:
 		typename pcl::template PointCloud<PointT>::Ptr curr_cloud; //< input cloud
 
 		CloudOps()
 			:curr_cloud(new typename pcl::template PointCloud<PointT>)
+			, prev_cloud(new typename pcl::template PointCloud<PointT>)
 		{
 		}
 
@@ -57,25 +67,65 @@ class CloudOps
 			pcl::copyPointCloud(*cloud_in, *curr_cloud);
 		}
 
-		/**
-		 * @brief Remove noisy data
-		 *
-		 * Removes outliers in a neighbourhood. 
-		 * Runs very slowly.
-		 *
-		 * @param nbrhd The search radius of the outlier remover
-		 */
-		void removeOutliers(unsigned int nbrhd)
+		void savePrevCloud()
 		{
-			typename pcl::template PointCloud<PointT>::Ptr 
-				temp_cloud(new typename pcl::template PointCloud<PointT>);
-			pcl::StatisticalOutlierRemoval<PointT> sor;
+			pcl::copyPointCloud(*curr_cloud, *prev_cloud);
+		}
 
-			sor.setInputCloud(curr_cloud);
-			sor.setMeanK(nbrhd);
-			sor.setStddevMulThresh(1.0);
-			sor.filter(*temp_cloud);
-			pcl::copyPointCloud(*temp_cloud, *curr_cloud);
+		/**
+		 * @brief Stitch clouds using ICP
+		 */
+		void incremental_icp(pcl::PointCloud<PointN>::Ptr cloud_out)
+		{
+
+			pcl::VoxelGrid<PointT> grid;
+			typename pcl::template PointCloud<PointT>::Ptr 
+				curr_cloud_filt(new typename pcl::template PointCloud<PointT>);
+			typename pcl::template PointCloud<PointT>::Ptr 
+				prev_cloud_filt(new typename pcl::template PointCloud<PointT>);
+			grid.setLeafSize(0.05f, 0.05f, 0.05f);
+
+			grid.setInputCloud(curr_cloud);
+			grid.filter(*curr_cloud_filt);
+
+			grid.setInputCloud(prev_cloud);
+			grid.filter(*prev_cloud_filt);
+
+			// Normal estimation
+			pcl::PointCloud<PointN>::Ptr curr_filt_nor(
+					new pcl::PointCloud<PointN>);
+			pcl::PointCloud<PointN>::Ptr prev_filt_nor(
+					new pcl::PointCloud<PointN>);
+
+			std::cout << " computing Normals" << std::endl;
+			computeNormals(curr_cloud_filt, curr_filt_nor);
+			computeNormals(prev_cloud_filt, prev_filt_nor);
+			std::cout << "Normals computed" << std::endl;
+
+			typename pcl::template IterativeClosestPointNonLinear<PointN, PointN> icp;
+
+			icp.setTransformationEpsilon(1e-6);
+			icp.setMaxCorrespondenceDistance(0.5);
+
+			icp.setMaximumIterations(50);
+			icp.setInputSource(curr_filt_nor);
+			icp.setInputTarget(prev_filt_nor);
+
+			
+			std::cout << "Aligning..." << std::endl;
+			icp.align(*cloud_out);
+			std::cout << "Aligned..." << std::endl;
+
+			/*
+			pcl::IterativeClosestPoint<PointT, PointT> icp;
+			icp.setInputSource(curr_cloud_filt);
+			icp.setInputTarget(prev_cloud_filt);
+			icp.align(*cloud_out);
+			
+			
+			std::cout << "Converged? " << icp.hasConverged() << std::endl;
+			std::cout << icp.getFinalTransformation() << std::endl;
+			*/
 		}
 
 		/**
@@ -285,13 +335,14 @@ class CloudOps
 
 		}
 
-		void computeNormals(pcl::PointCloud<PointN>::Ptr normals_out)
+		void computeNormals(typename pcl::template PointCloud<PointT>::Ptr cloud_in,
+				pcl::PointCloud<PointN>::Ptr normals_out)
 		{
 			typename pcl::template NormalEstimation<PointT, PointN> ne;
 			typename pcl::search::template KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>); 
-			ne.setInputCloudcurr_cloud;
+			ne.setInputCloud(cloud_in);
 			ne.setSearchMethod(tree);
-			ne.setRadiusSearch(0.008);
+			ne.setKSearch(50);
 			ne.compute(*normals_out);
 		}
 
@@ -300,7 +351,7 @@ class CloudOps
 		{
 			typename pcl::template BoundaryEstimation<PointT, PointN, PointB> est;
 
-			est.setInputCloudcurr_cloud;
+			est.setInputCloud(curr_cloud);
 			est.setInputNormals(normals_in);
 			est.setRadiusSearch(0.01);
 
@@ -316,7 +367,7 @@ class CloudOps
 
 			mls.setComputeNormals(true);
 
-			mls.setInputCloudcurr_cloud;
+			mls.setInputCloud(curr_cloud);
 			mls.setPolynomialFit(true);
 			mls.setSearchMethod(tree);
 			mls.setSearchRadius(0.03f);
