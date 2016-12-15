@@ -53,7 +53,7 @@ int main(int argc, char **argv)
 	std::vector<Eigen::Vector4f> corners;
 	int i = 0;
 	// Load trained model for detecting edges
-	WindowDetector *wd = new WindowDetector("../resources/model.yml");
+	// WindowDetector *wd = new WindowDetector("../resources/model.yml");
 	std::cout << "Loaded model" << std::endl;
 
 #if SERVO_ENABLE
@@ -85,8 +85,8 @@ int main(int argc, char **argv)
 		else
 			co->filter_cloud(input_cloud, cloud_out_icp);
 
-		co->getIntersectionPoints(corners, line_coeffs_out, 0.001);
 
+		/*
 		if(!wd->readImage("gray.pgm"))
 		{
 			wd->detectEdges();
@@ -95,6 +95,7 @@ int main(int argc, char **argv)
 			std::cout << "Detected windows :" << boundRectOut.size() << std::endl;
 			co->printWorldCoords(124);
 		}
+		*/
 
 #if SERVO_ENABLE
 		cloud_stack.push_back(*cloud_out_icp);
@@ -111,6 +112,7 @@ int main(int argc, char **argv)
 		// Filthy tactics to save memory
 		cloud_stack[i].clear();
 	}
+	co->getIntersectionPoints(stitched_cloud, corners, line_coeffs_out, 0.001);
 	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
 #endif
 
@@ -118,6 +120,7 @@ int main(int argc, char **argv)
 	pcl::visualization::PCLVisualizer viewer;
 	
 #if SERVO_ENABLE
+	system("aplay -q ~/beep.wav");
 	viewer.addPointCloud(stitched_cloud, "final_cloud");
 	std::ofstream corner_file;
 	corner_file.open("corners.csv");
@@ -152,6 +155,7 @@ int main(int argc, char **argv)
 		ss.clear();
 		ss.str("");
 	}
+
 #else
 	viewer.addPointCloud(input_cloud, "input_cloud");
 #endif

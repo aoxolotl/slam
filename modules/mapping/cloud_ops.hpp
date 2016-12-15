@@ -161,7 +161,8 @@ class CloudOps
 		 * @param[out] planes Point cloud of segmented planes
 		 * @param[out] coeffs_out Coefficients of segmented planes
 		 */
-		void segmentPlanes(std::vector<typename pcl::template PointCloud<PointT>::Ptr> &planes,
+		void segmentPlanes(typename pcl::template PointCloud<PointT>::Ptr cloud_in,
+				std::vector<typename pcl::template PointCloud<PointT>::Ptr> &planes,
 				std::vector<pcl::ModelCoefficients::Ptr> &coeffs_out)
 		{
 			pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
@@ -171,7 +172,7 @@ class CloudOps
 				temp_cloud(new typename pcl::template PointCloud<PointT>);
 
 			// Retaining original cloud
-			pcl::copyPointCloud(*curr_cloud, *temp_cloud);
+			pcl::copyPointCloud(*cloud_in, *temp_cloud);
 
 			typename pcl::template SACSegmentation<PointT> seg;
 			typename pcl::template ExtractIndices<PointT> extr;
@@ -179,7 +180,7 @@ class CloudOps
 
 			seg.setModelType(pcl::SACMODEL_PLANE);
 			seg.setMethodType(pcl::SAC_RANSAC);
-			seg.setDistanceThreshold(0.02);
+			seg.setDistanceThreshold(0.05);
 			seg.setMaxIterations(500);
 
 			int i = 0;
@@ -204,7 +205,8 @@ class CloudOps
 					extr.filter(*cloud_filt);
 
 					*plane = *cloud_filt;
-					planes.push_back(plane);
+					if(plane->points.size() > 50)
+						planes.push_back(plane);
 
 					extr.setNegative(true);
 					extr.filter(*cloud_filt);
@@ -262,7 +264,8 @@ class CloudOps
 		 * @param[out] points_out Coordinates of points
 		 * @param[in] epsilon tolerance value
 		 */
-		void getIntersectionPoints(std::vector<Eigen::Vector4f> &corners, 
+		void getIntersectionPoints(typename pcl::template PointCloud<PointT>::Ptr cloud_in,
+				std::vector<Eigen::Vector4f> &corners, 
 				std::vector<pcl::ModelCoefficients::Ptr> &line_coeffs_out, 
 				double epsilon)
 		{
@@ -270,12 +273,21 @@ class CloudOps
 			std::vector<Eigen::Vector4f> points_out;
 			/// Segment planes
 			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
-			std::vector<pcl::ModelCoefficients::Ptr> coeffs_out;
-			segmentPlanes(planes_out, coeffs_out);
+			std::vector<pcl::ModelCoefficients::Ptr> plane_coeffs_out;
+			segmentPlanes(cloud_in, planes_out, plane_coeffs_out);
+			typename pcl::template PointCloud<PointT>::Ptr 
+				stitched_planes(new typename pcl::template PointCloud<PointT>);
+			for(size_t i = 0; i < planes_out.size(); ++i)
+			{
+				std::cout << "Plane size :" 
+					<< planes_out[i]->points.size() << std::endl;
+				*stitched_planes += *planes_out[i];
+			}
+			pcl::io::savePCDFileASCII("planes.pcd", *stitched_planes);
 
 			/// Get intersection lines
 			
-			getIntersectionLines(coeffs_out, line_coeffs_out);
+			getIntersectionLines(plane_coeffs_out, line_coeffs_out);
 
 			std::cout << "Num lines " << line_coeffs_out.size() << std::endl;
 
@@ -298,6 +310,7 @@ class CloudOps
 					if(!(isnan(temp_point.x()) || isnan(temp_point.y())
 								|| isnan(temp_point.z())))
 					{
+						corners.push_back(temp_point);
 						mean.x() += temp_point.x();
 						mean.y() += temp_point.y();
 						mean.z() += temp_point.z();
@@ -313,7 +326,7 @@ class CloudOps
 				mean.z() /= mean_count;
 			}
 			// Remove outliers from data
-			int final_mean_count = 0;
+			/*int final_mean_count = 0;
 			for(int i = 0; i < mean_count; i++)
 			{
 				variance.x() = (points_out[i].x() - mean.x()) 
@@ -339,6 +352,7 @@ class CloudOps
 				final_mean.z() /= final_mean_count;
 				corners.push_back(final_mean);
 			}
+			*/
 
 		}
 
