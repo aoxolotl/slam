@@ -47,10 +47,10 @@ int main(int argc, char **argv)
 
 	// Stack of all clouds
 	std::vector<pcl::PointCloud<PointColor> > cloud_stack;
-	std::vector<pcl::ModelCoefficients::Ptr> line_coeffs_out;
+	std::vector<pcl::ModelCoefficients::Ptr> plane_coeffs_out;
 
 	// Corner points
-	std::vector<Eigen::Vector4f> corners;
+	std::vector<Eigen::Vector3f> corners;
 	int i = 0;
 	// Load trained model for detecting edges
 	// WindowDetector *wd = new WindowDetector("../resources/model.yml");
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 		// Filthy tactics to save memory
 		cloud_stack[i].clear();
 	}
-	co->getIntersectionPoints(stitched_cloud, corners, line_coeffs_out, 0.001);
+	co->getIntersectionPoints(stitched_cloud, corners, plane_coeffs_out, 0.001);
 	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
 #endif
 
@@ -146,12 +146,12 @@ int main(int argc, char **argv)
 	}
 	corner_file.close();
 	
-	for(int i = 0; i < line_coeffs_out.size(); ++i)
+	for(int i = 0; i < plane_coeffs_out.size(); ++i)
 	{
 		std::stringstream ss;
 
-		ss << "line_" << i;
-		viewer.addLine(*(line_coeffs_out[i]), ss.str());
+		ss << "plane_" << i;
+		viewer.addPlane(*(plane_coeffs_out[i]), ss.str());
 		ss.clear();
 		ss.str("");
 	}

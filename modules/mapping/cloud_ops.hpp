@@ -265,95 +265,45 @@ class CloudOps
 		 * @param[in] epsilon tolerance value
 		 */
 		void getIntersectionPoints(typename pcl::template PointCloud<PointT>::Ptr cloud_in,
-				std::vector<Eigen::Vector4f> &corners, 
-				std::vector<pcl::ModelCoefficients::Ptr> &line_coeffs_out, 
+				std::vector<Eigen::Vector3f> &corners, 
+				std::vector<pcl::ModelCoefficients::Ptr> &plane_coeffs_out, 
 				double epsilon)
 		{
 			Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
-			std::vector<Eigen::Vector4f> points_out;
+			Eigen::Vector3f point_out;
 			/// Segment planes
 			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
-			std::vector<pcl::ModelCoefficients::Ptr> plane_coeffs_out;
 			segmentPlanes(cloud_in, planes_out, plane_coeffs_out);
-			typename pcl::template PointCloud<PointT>::Ptr 
-				stitched_planes(new typename pcl::template PointCloud<PointT>);
-			for(size_t i = 0; i < planes_out.size(); ++i)
+			int num_planes = plane_coeffs_out.size();
+			std::cout << "planes: " << num_planes <<  std::endl;
+			for(int i = 0; i < num_planes; ++i)
 			{
-				std::cout << "Plane size :" 
-					<< planes_out[i]->points.size() << std::endl;
-				*stitched_planes += *planes_out[i];
-			}
-			pcl::io::savePCDFileASCII("planes.pcd", *stitched_planes);
+				Eigen::Vector4f plane_a, plane_b, plane_c; 
 
-			/// Get intersection lines
-			
-			getIntersectionLines(plane_coeffs_out, line_coeffs_out);
+				plane_a.x() = plane_coeffs_out[i % num_planes]->values[0];
+				plane_a.y() = plane_coeffs_out[i % num_planes]->values[1];
+				plane_a.z() = plane_coeffs_out[i % num_planes]->values[2];
+				plane_a.w() = plane_coeffs_out[i % num_planes]->values[3];
 
-			std::cout << "Num lines " << line_coeffs_out.size() << std::endl;
+				plane_b.x() = plane_coeffs_out[(i+1) % num_planes]->values[0];
+				plane_b.y() = plane_coeffs_out[(i+1) % num_planes]->values[1];
+				plane_b.z() = plane_coeffs_out[(i+1) % num_planes]->values[2];
+				plane_b.w() = plane_coeffs_out[(i+1) % num_planes]->values[3];
 
-			if(!line_coeffs_out.size())
-			{
-				std::cout << "No lines found. Starting next iteration" << std::endl;
-				return ;
-			}
+				plane_c.x() = plane_coeffs_out[(i+2) % num_planes]->values[0];
+				plane_c.y() = plane_coeffs_out[(i+2) % num_planes]->values[1];
+				plane_c.z() = plane_coeffs_out[(i+2) % num_planes]->values[2];
+				plane_c.w() = plane_coeffs_out[(i+2) % num_planes]->values[3];
 
-			/// Get Intersection points
-			Eigen::Vector4f temp_point;
-			Eigen::Vector4f mean(.0f, .0f, .0f, .0f), variance(.0f, .0f, .0f, .0f);
-			unsigned int mean_count = 0;
-			std::cout << "Get intersection points" << std::endl;
-			for(int i = 0; i < (line_coeffs_out.size() - 1); i++)
-			{
-				if(pcl::lineWithLineIntersection(*line_coeffs_out[i], *line_coeffs_out[i+1], temp_point, epsilon))
+				if(pcl::threePlanesIntersection(plane_a,
+						plane_b,
+						plane_c,
+						point_out, 1e-2))
 				{
-					points_out.push_back(temp_point);
-					if(!(isnan(temp_point.x()) || isnan(temp_point.y())
-								|| isnan(temp_point.z())))
-					{
-						corners.push_back(temp_point);
-						mean.x() += temp_point.x();
-						mean.y() += temp_point.y();
-						mean.z() += temp_point.z();
-						++mean_count;
-					}
+					corners.push_back(point_out);
+					std::cout << "planes: " << i << std::endl;
 				}
 			}
-			std::cout << "Num corners " << mean_count << std::endl;
-			if(mean_count)
-			{
-				mean.x() /= mean_count;
-				mean.y() /= mean_count;
-				mean.z() /= mean_count;
-			}
-			// Remove outliers from data
-			/*int final_mean_count = 0;
-			for(int i = 0; i < mean_count; i++)
-			{
-				variance.x() = (points_out[i].x() - mean.x()) 
-					* (points_out[i].x() - mean.x());
-				variance.y() = (points_out[i].y() - mean.y()) 
-					* (points_out[i].y() - mean.y());
-				variance.z() = (points_out[i].z() - mean.z()) 
-					* (points_out[i].z() - mean.z());
-				if(variance.x() < .1f && variance.y() < .1f 
-						&& variance.z() < .1f)
-				{
-					final_mean.x() += points_out[i].x();
-					final_mean.y() += points_out[i].y();
-					final_mean.z() += points_out[i].z();
-					++final_mean_count;
-				}
-			}
-			std::cout << "Num corners " << final_mean_count << std::endl;
-			if(final_mean_count)
-			{
-				final_mean.x() /= final_mean_count;
-				final_mean.y() /= final_mean_count;
-				final_mean.z() /= final_mean_count;
-				corners.push_back(final_mean);
-			}
-			*/
-
 		}
 
 		void computeNormals(typename pcl::template PointCloud<PointT>::Ptr cloud_in,
