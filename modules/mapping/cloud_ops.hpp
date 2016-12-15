@@ -72,27 +72,31 @@ class CloudOps
 			pcl::copyPointCloud(*curr_cloud, *prev_cloud);
 		}
 
+		void filter_cloud(typename pcl::template PointCloud<PointT>::Ptr cloud_in, 
+			typename pcl::template PointCloud<PointT>::Ptr cloud_out)
+		{
+			pcl::VoxelGrid<PointT> grid;
+			grid.setLeafSize(0.05f, 0.05f, 0.05f);
+			grid.setInputCloud(cloud_in);
+			grid.filter(*cloud_out);
+		}
+
 		/**
 		 * @brief Stitch clouds using ICP
 		 */
-		void incremental_icp(pcl::PointCloud<PointN>::Ptr cloud_out)
+		void incremental_icp(typename pcl::template PointCloud<PointT>::Ptr cloud_out)
 		{
 
-			pcl::VoxelGrid<PointT> grid;
 			typename pcl::template PointCloud<PointT>::Ptr 
 				curr_cloud_filt(new typename pcl::template PointCloud<PointT>);
 			typename pcl::template PointCloud<PointT>::Ptr 
 				prev_cloud_filt(new typename pcl::template PointCloud<PointT>);
-			grid.setLeafSize(0.05f, 0.05f, 0.05f);
+			filter_cloud(curr_cloud, curr_cloud_filt);
+			filter_cloud(prev_cloud, prev_cloud_filt);
 
-			grid.setInputCloud(curr_cloud);
-			grid.filter(*curr_cloud_filt);
-
-			grid.setInputCloud(prev_cloud);
-			grid.filter(*prev_cloud_filt);
-
+			/*
 			// Normal estimation
-			pcl::PointCloud<PointN>::Ptr curr_filt_nor(
+`			pcl::PointCloud<PointN>::Ptr curr_filt_nor(
 					new pcl::PointCloud<PointN>);
 			pcl::PointCloud<PointN>::Ptr prev_filt_nor(
 					new pcl::PointCloud<PointN>);
@@ -115,17 +119,20 @@ class CloudOps
 			std::cout << "Aligning..." << std::endl;
 			icp.align(*cloud_out);
 			std::cout << "Aligned..." << std::endl;
+			*/
 
-			/*
 			pcl::IterativeClosestPoint<PointT, PointT> icp;
+			
+			icp.setTransformationEpsilon(1e-6);
+			icp.setMaxCorrespondenceDistance(0.5);
+			icp.setMaximumIterations(50);
+			
 			icp.setInputSource(curr_cloud_filt);
 			icp.setInputTarget(prev_cloud_filt);
 			icp.align(*cloud_out);
 			
-			
 			std::cout << "Converged? " << icp.hasConverged() << std::endl;
 			std::cout << icp.getFinalTransformation() << std::endl;
-			*/
 		}
 
 		/**

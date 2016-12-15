@@ -37,8 +37,7 @@ int main(int argc, char **argv)
 #endif
 
     pcl::PointCloud<PointColor>::Ptr input_cloud(new pcl::PointCloud<PointColor>);
-    pcl::PointCloud<PointColor>::Ptr what_ra_yu(new pcl::PointCloud<PointColor>);
-    pcl::PointCloud<PointN>::Ptr cloud_out_icp(new pcl::PointCloud<PointN>);
+    pcl::PointCloud<PointColor>::Ptr cloud_out_icp(new pcl::PointCloud<PointColor>);
 	cv::Mat rgbIm;
 	PointCloudIO<PointColor> *pio = new PointCloudIO<PointColor>();
 	CloudOps<PointColor> *co = new CloudOps<PointColor>();
@@ -47,7 +46,7 @@ int main(int argc, char **argv)
 	std::vector<cv::Rect> boundRectOut;
 
 	// Stack of all clouds
-	std::vector<pcl::PointCloud<PointN> > cloud_stack;
+	std::vector<pcl::PointCloud<PointColor> > cloud_stack;
 	std::vector<pcl::ModelCoefficients::Ptr> line_coeffs_out;
 
 	// Corner points
@@ -60,6 +59,7 @@ int main(int argc, char **argv)
 #if SERVO_ENABLE
 	for(i = 0; i < numSteps; i++)
 	{
+		std::cout << "*****Beginning " << i+1 << "th iteration*****" << std::endl;
 		dxl_rotate_by(254, rot_ang_deg * i);
 		sleep(4);
 #endif
@@ -75,15 +75,15 @@ int main(int argc, char **argv)
 		// Copy curr Cloud to prev after 1st iteration
 		if(i)
 			co->savePrevCloud();
+		
 		co->setInputCloud(input_cloud);
-		std::cout << "Set input point cloud..." << std::endl;
+		std::cout << "Set input point cloud" << std::endl;
 		co->apply_transform(0, 0, 0, i * rot_ang_deg);
 		std::cout << "Applied transform" << std::endl;
 		if(i)
 			co->incremental_icp(cloud_out_icp);
 		else
-			pcl::copyPointCloud(*input_cloud, *cloud_out_icp);
-
+			co->filter_cloud(input_cloud, cloud_out_icp);
 
 		co->getIntersectionPoints(corners, line_coeffs_out, 0.001);
 
@@ -104,21 +104,21 @@ int main(int argc, char **argv)
 #endif
 
 #if SERVO_ENABLE
-	pcl::PointCloud<PointN>::Ptr stitched_cloud(new pcl::PointCloud<PointN>);
+	pcl::PointCloud<PointColor>::Ptr stitched_cloud(new pcl::PointCloud<PointColor>);
 	for(int i = 0; i < cloud_stack.size(); ++i)
 	{
 		*stitched_cloud += cloud_stack[i];
 		// Filthy tactics to save memory
-		//cloud_stack[i].clear();
+		cloud_stack[i].clear();
 	}
-	pcl::copyPointCloud(*stitched_cloud, *what_ra_yu);
+	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
 #endif
 
 	// Visualizer
 	pcl::visualization::PCLVisualizer viewer;
 	
 #if SERVO_ENABLE
-	viewer.addPointCloud(what_ra_yu, "final_cloud");
+	viewer.addPointCloud(stitched_cloud, "final_cloud");
 	std::ofstream corner_file;
 	corner_file.open("corners.csv");
 	for(int i = 0; i < corners.size(); ++i)
