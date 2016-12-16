@@ -81,59 +81,6 @@ class CloudOps
 			grid.filter(*cloud_out);
 		}
 
-		/**
-		 * @brief Stitch clouds using ICP
-		 */
-		void incremental_icp(typename pcl::template PointCloud<PointT>::Ptr cloud_out)
-		{
-
-			typename pcl::template PointCloud<PointT>::Ptr 
-				curr_cloud_filt(new typename pcl::template PointCloud<PointT>);
-			typename pcl::template PointCloud<PointT>::Ptr 
-				prev_cloud_filt(new typename pcl::template PointCloud<PointT>);
-			filter_cloud(curr_cloud, curr_cloud_filt);
-			filter_cloud(prev_cloud, prev_cloud_filt);
-
-			/*
-			// Normal estimation
-`			pcl::PointCloud<PointN>::Ptr curr_filt_nor(
-					new pcl::PointCloud<PointN>);
-			pcl::PointCloud<PointN>::Ptr prev_filt_nor(
-					new pcl::PointCloud<PointN>);
-
-			std::cout << " computing Normals" << std::endl;
-			computeNormals(curr_cloud_filt, curr_filt_nor);
-			computeNormals(prev_cloud_filt, prev_filt_nor);
-			std::cout << "Normals computed" << std::endl;
-
-			typename pcl::template IterativeClosestPointNonLinear<PointN, PointN> icp;
-
-			icp.setTransformationEpsilon(1e-6);
-			icp.setMaxCorrespondenceDistance(0.5);
-
-			icp.setMaximumIterations(50);
-			icp.setInputSource(curr_filt_nor);
-			icp.setInputTarget(prev_filt_nor);
-
-			
-			std::cout << "Aligning..." << std::endl;
-			icp.align(*cloud_out);
-			std::cout << "Aligned..." << std::endl;
-			*/
-
-			pcl::IterativeClosestPoint<PointT, PointT> icp;
-			
-			icp.setTransformationEpsilon(1e-6);
-			icp.setMaxCorrespondenceDistance(0.5);
-			icp.setMaximumIterations(50);
-			
-			icp.setInputSource(curr_cloud_filt);
-			icp.setInputTarget(prev_cloud_filt);
-			icp.align(*cloud_out);
-			
-			std::cout << "Converged? " << icp.hasConverged() << std::endl;
-			std::cout << icp.getFinalTransformation() << std::endl;
-		}
 
 		/**
 		 * @brief Apply translation and rotation to input cloud
@@ -154,6 +101,34 @@ class CloudOps
 			pcl::transformPointCloud(*curr_cloud, *temp_cloud, transform);
 			pcl::copyPointCloud(*temp_cloud, *curr_cloud);
 
+		}
+
+		/**
+		 * @brief Register clouds using ICP
+		 * @param[out] Transformed cloud
+		 */
+		void incremental_icp(typename pcl::template PointCloud<PointT>::Ptr cloud_out)
+		{
+
+			typename pcl::template PointCloud<PointT>::Ptr 
+				curr_cloud_filt(new typename pcl::template PointCloud<PointT>);
+			typename pcl::template PointCloud<PointT>::Ptr 
+				prev_cloud_filt(new typename pcl::template PointCloud<PointT>);
+			filter_cloud(curr_cloud, curr_cloud_filt);
+			filter_cloud(prev_cloud, prev_cloud_filt);
+
+			pcl::IterativeClosestPoint<PointT, PointT> icp;
+			
+			icp.setTransformationEpsilon(1e-6);
+			icp.setMaxCorrespondenceDistance(0.5);
+			icp.setMaximumIterations(50);
+			
+			icp.setInputSource(curr_cloud_filt);
+			icp.setInputTarget(prev_cloud_filt);
+			icp.align(*cloud_out);
+			
+			std::cout << "Converged? " << icp.hasConverged() << std::endl;
+			std::cout << icp.getFinalTransformation() << std::endl;
 		}
 
 		/**
@@ -274,8 +249,10 @@ class CloudOps
 			/// Segment planes
 			std::vector<typename pcl::template PointCloud<PointT>::Ptr> planes_out;
 			segmentPlanes(cloud_in, planes_out, plane_coeffs_out);
+
 			int num_planes = plane_coeffs_out.size();
-			std::cout << "planes: " << num_planes <<  std::endl;
+			std::cout << "Planes detected: " << num_planes <<  std::endl;
+
 			for(int i = 0; i < num_planes; ++i)
 			{
 				Eigen::Vector4f plane_a, plane_b, plane_c; 
@@ -302,9 +279,24 @@ class CloudOps
 						if(pcl::threePlanesIntersection(plane_a,
 									plane_b,
 									plane_c,
-									point_out,0.08))
+									point_out, 0.08))
 						{
-							corners.push_back(point_out);
+							
+							if(corners.size())
+							{
+								int ct;
+								for(ct = 0; ct < corners.size(); ++ct)
+								{ 
+									// 8cm
+									if(fabs(corners[ct].x() 
+											- point_out.x() < 0.08f))
+										break;
+								}
+								if(ct == corners.size())
+									corners.push_back(point_out);
+							}
+							else
+								corners.push_back(point_out);
 						}
 					}
 				}

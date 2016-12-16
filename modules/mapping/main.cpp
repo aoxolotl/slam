@@ -59,9 +59,9 @@ int main(int argc, char **argv)
 #if SERVO_ENABLE
 	for(i = 0; i < numSteps; i++)
 	{
-		std::cout << "*****Beginning " << i+1 << "th iteration*****" << std::endl;
+		std::cout << "*****Beginning iteration " << i+1 << " *****" << std::endl;
 		dxl_rotate_by(254, rot_ang_deg * i);
-		sleep(4);
+		sleep(3);
 #endif
 
 		if(pio->getPointCloudAndIm(input_cloud, rgbIm) < 0)
@@ -70,7 +70,6 @@ int main(int argc, char **argv)
 			exit(-1);
 		}
 		std::cout << "Saved point cloud..." << std::endl;
-		pio->saveImage(rgbIm, "rgb.png");
 
 		// Copy curr Cloud to prev after 1st iteration
 		if(i)
@@ -84,17 +83,6 @@ int main(int argc, char **argv)
 			co->incremental_icp(cloud_out_icp);
 		else
 			co->filter_cloud(input_cloud, cloud_out_icp);
-
-		/*
-		if(!wd->readImage("gray.pgm"))
-		{
-			wd->detectEdges();
-			wd->detectRectangles(boundRectOut, true);
-			// TODO: Find corresponding rectangle in point cloud
-			std::cout << "Detected windows :" << boundRectOut.size() << std::endl;
-			co->printWorldCoords(124);
-		}
-		*/
 
 #if SERVO_ENABLE
 		cloud_stack.push_back(*cloud_out_icp);
