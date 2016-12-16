@@ -280,28 +280,33 @@ class CloudOps
 			{
 				Eigen::Vector4f plane_a, plane_b, plane_c; 
 
-				plane_a.x() = plane_coeffs_out[i % num_planes]->values[0];
-				plane_a.y() = plane_coeffs_out[i % num_planes]->values[1];
-				plane_a.z() = plane_coeffs_out[i % num_planes]->values[2];
-				plane_a.w() = plane_coeffs_out[i % num_planes]->values[3];
+				plane_a.x() = plane_coeffs_out[i]->values[0];
+				plane_a.y() = plane_coeffs_out[i]->values[1];
+				plane_a.z() = plane_coeffs_out[i]->values[2];
+				plane_a.w() = plane_coeffs_out[i]->values[3];
 
-				plane_b.x() = plane_coeffs_out[(i+1) % num_planes]->values[0];
-				plane_b.y() = plane_coeffs_out[(i+1) % num_planes]->values[1];
-				plane_b.z() = plane_coeffs_out[(i+1) % num_planes]->values[2];
-				plane_b.w() = plane_coeffs_out[(i+1) % num_planes]->values[3];
-
-				plane_c.x() = plane_coeffs_out[(i+2) % num_planes]->values[0];
-				plane_c.y() = plane_coeffs_out[(i+2) % num_planes]->values[1];
-				plane_c.z() = plane_coeffs_out[(i+2) % num_planes]->values[2];
-				plane_c.w() = plane_coeffs_out[(i+2) % num_planes]->values[3];
-
-				if(pcl::threePlanesIntersection(plane_a,
-						plane_b,
-						plane_c,
-						point_out, 1e-2))
+				for(int j = i + 1; j < num_planes; ++j)
 				{
-					corners.push_back(point_out);
-					std::cout << "planes: " << i << std::endl;
+					plane_b.x() = plane_coeffs_out[j]->values[0];
+					plane_b.y() = plane_coeffs_out[j]->values[1];
+					plane_b.z() = plane_coeffs_out[j]->values[2];
+					plane_b.w() = plane_coeffs_out[j]->values[3];
+
+					for(int k = j + 1; k < num_planes; ++k)
+					{
+						plane_c.x() = plane_coeffs_out[k]->values[0];
+						plane_c.y() = plane_coeffs_out[k]->values[1];
+						plane_c.z() = plane_coeffs_out[k]->values[2];
+						plane_c.w() = plane_coeffs_out[k]->values[3];
+						
+						if(pcl::threePlanesIntersection(plane_a,
+									plane_b,
+									plane_c,
+									point_out,0.08))
+						{
+							corners.push_back(point_out);
+						}
+					}
 				}
 			}
 		}

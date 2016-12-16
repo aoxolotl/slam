@@ -85,7 +85,6 @@ int main(int argc, char **argv)
 		else
 			co->filter_cloud(input_cloud, cloud_out_icp);
 
-
 		/*
 		if(!wd->readImage("gray.pgm"))
 		{
