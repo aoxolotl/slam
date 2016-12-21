@@ -47,6 +47,7 @@ int main(int argc, char **argv)
 
 	// Stack of all clouds
 	std::vector<pcl::PointCloud<PointColor> > cloud_stack;
+	// Stack of all segmented planes
 	std::vector<pcl::ModelCoefficients::Ptr> plane_coeffs_out;
 
 	// Corner points
@@ -99,7 +100,7 @@ int main(int argc, char **argv)
 		// Filthy tactics to save memory
 		cloud_stack[i].clear();
 	}
-	co->getIntersectionPoints(stitched_cloud, corners, plane_coeffs_out, 0.001);
+	co->getIntersectionPoints(stitched_cloud, corners, plane_coeffs_out, 0.08);
 	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
 #endif
 
@@ -109,6 +110,7 @@ int main(int argc, char **argv)
 #if SERVO_ENABLE
 	system("aplay -q ~/beep.wav");
 	viewer.addPointCloud(stitched_cloud, "final_cloud");
+	// Write coordinates to csv file
 	std::ofstream corner_file;
 	corner_file.open("corners.csv");
 	for(int i = 0; i < corners.size(); ++i)
@@ -133,6 +135,7 @@ int main(int argc, char **argv)
 	}
 	corner_file.close();
 	
+	// Display segmented planes
 	for(int i = 0; i < plane_coeffs_out.size(); ++i)
 	{
 		std::stringstream ss;

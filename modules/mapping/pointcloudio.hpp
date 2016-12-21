@@ -32,10 +32,13 @@ class PointCloudIO
 
 			cv::Mat grayMat;
 
+			// Set cloud dimensions
 			curr_cloud->width = 512;
 			curr_cloud->height = 424;
 			curr_cloud->is_dense = false;
-			curr_cloud->points.resize(curr_cloud->width * curr_cloud->height);
+			// Set cloud dimensions
+			curr_cloud->points.resize(
+					curr_cloud->width * curr_cloud->height);
 
 			if(freenect2.enumerateDevices() == 0)
 			{
@@ -78,9 +81,12 @@ class PointCloudIO
 
 			// registration
 			libfreenect2::Registration* registration = 
-				new libfreenect2::Registration(dev->getIrCameraParams(), dev->getColorCameraParams());
+				new libfreenect2::Registration(
+						dev->getIrCameraParams(),
+					   	dev->getColorCameraParams());
+
 			libfreenect2::Frame undistorted(512, 424, 4), 
-				registered(512, 424, 4), bigdepth(1920, 1082, 4);
+				registered(512, 424, 4);
 
 			if(!listener.waitForNewFrame(frames, 10*1000)) // 10 seconds 
 			{ 
@@ -93,11 +99,11 @@ class PointCloudIO
 			libfreenect2::Frame *depth = frames[libfreenect2::Frame::Depth]; 
 
 			registration->apply(rgb, depth, &undistorted, &registered,
-					true, &bigdepth);
+					true);
 
 			// Deal with rgb frame
-			cv::Mat(bigdepth.height, bigdepth.width, 
-					CV_8UC4, bigdepth.data).copyTo(rgbIm);
+			cv::Mat(rgb.height, rgb.width, 
+					CV_8UC4, rgb.data).copyTo(rgbIm);
 			cv::cvtColor(rgbIm, grayMat, CV_BGRA2GRAY);
 
 			// Reflect image before saving

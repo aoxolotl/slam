@@ -62,7 +62,8 @@ class CloudOps
 		 *
 		 * @param[in] cloud_in shared_ptr to input cloud
 		 */
-		void setInputCloud(typename pcl::template PointCloud<PointT>::Ptr cloud_in)
+		void setInputCloud(
+				typename pcl::template PointCloud<PointT>::Ptr cloud_in)
 		{
 			pcl::copyPointCloud(*cloud_in, *curr_cloud);
 		}
@@ -72,8 +73,14 @@ class CloudOps
 			pcl::copyPointCloud(*curr_cloud, *prev_cloud);
 		}
 
-		void filter_cloud(typename pcl::template PointCloud<PointT>::Ptr cloud_in, 
-			typename pcl::template PointCloud<PointT>::Ptr cloud_out)
+		/**
+		 * @brief Downsample the cloud using VoxelGrid
+		 * @param[in] cloud_in Input Point Cloud
+		 * @param[out] cloud_out Filtered/Downsampled cloud
+		 */
+		void filter_cloud(
+				typename pcl::template PointCloud<PointT>::Ptr cloud_in, 
+				typename pcl::template PointCloud<PointT>::Ptr cloud_out)
 		{
 			pcl::VoxelGrid<PointT> grid;
 			grid.setLeafSize(0.05f, 0.05f, 0.05f);
@@ -114,6 +121,7 @@ class CloudOps
 				curr_cloud_filt(new typename pcl::template PointCloud<PointT>);
 			typename pcl::template PointCloud<PointT>::Ptr 
 				prev_cloud_filt(new typename pcl::template PointCloud<PointT>);
+
 			filter_cloud(curr_cloud, curr_cloud_filt);
 			filter_cloud(prev_cloud, prev_cloud_filt);
 
@@ -141,8 +149,10 @@ class CloudOps
 				std::vector<pcl::ModelCoefficients::Ptr> &coeffs_out)
 		{
 			pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+
 			typename pcl::template PointCloud<PointT>::Ptr 
 				cloud_filt(new typename pcl::template PointCloud<PointT>);
+
 			typename pcl::template PointCloud<PointT>::Ptr 
 				temp_cloud(new typename pcl::template PointCloud<PointT>);
 
@@ -172,8 +182,9 @@ class CloudOps
 
 				if(inliers->indices.size())
 				{
-					typename pcl::template PointCloud<PointT>::Ptr plane(new typename pcl::template PointCloud<PointT>);
-					//Extract points from cloud
+					typename pcl::template PointCloud<PointT>::Ptr plane(
+							new typename pcl::template PointCloud<PointT>);
+					// Extract points of a plane from cloud
 					extr.setInputCloud(temp_cloud);
 					extr.setIndices(inliers);
 					extr.setNegative(false);
@@ -198,10 +209,11 @@ class CloudOps
 
 		/**
 		 * @brief Get lines of intersection between planes
-		 * @param[in] coeffs_in Coefficients of planes
-		 * @param[out] line_coeffs Coefficients of lines
+		 * @param[in] plane_coeffs_in Coefficients of planes
+		 * @param[out] line_coeffs Coefficients of intersecting lines
 		 */
-		void getIntersectionLines(std::vector<pcl::ModelCoefficients::Ptr> coeffs_in, 
+		void getIntersectionLines(
+				std::vector<pcl::ModelCoefficients::Ptr> plane_coeffs_in, 
 				std::vector<pcl::ModelCoefficients::Ptr> &line_coeffs)
 		{
 
@@ -211,8 +223,10 @@ class CloudOps
 				Eigen::Vector4f plane_a; 
 				Eigen::Vector4f plane_b;
 				Eigen::VectorXf line;
-				pcl::ModelCoefficients::Ptr temp_coeff(new pcl::ModelCoefficients);
+				pcl::ModelCoefficients::Ptr temp_coeff(
+						new pcl::ModelCoefficients);
 
+				// Converting from ModelCoefficients to Vector4f
 				plane_a.x() = coeffs_in[i]->values[0];
 				plane_a.y() = coeffs_in[i]->values[1];
 				plane_a.z() = coeffs_in[i]->values[2];
@@ -236,10 +250,14 @@ class CloudOps
 
 		/**
 		 * @brief Get points of intersection of lines
-		 * @param[out] points_out Coordinates of points
-		 * @param[in] epsilon tolerance value
+		 * @param[in] cloud_in Input point cloud
+		 * @param[out] corners Coordinates of intersection points
+		 * @param[out] plane_coeffs_out Coefficients of segmented planes
+		 * @param[in] epsilon determinant values for parallel planes
+		 * if value is < epsilon, intersection is nor calculated
 		 */
-		void getIntersectionPoints(typename pcl::template PointCloud<PointT>::Ptr cloud_in,
+		void getIntersectionPoints(
+				typename pcl::template PointCloud<PointT>::Ptr cloud_in,
 				std::vector<Eigen::Vector3f> &corners, 
 				std::vector<pcl::ModelCoefficients::Ptr> &plane_coeffs_out, 
 				double epsilon)
@@ -253,10 +271,12 @@ class CloudOps
 			int num_planes = plane_coeffs_out.size();
 			std::cout << "Planes detected: " << num_planes <<  std::endl;
 
+			// Calculate intersection for every 3 planes
 			for(int i = 0; i < num_planes; ++i)
 			{
 				Eigen::Vector4f plane_a, plane_b, plane_c; 
 
+				// Converting from ModelCoefficients to Vector4f
 				plane_a.x() = plane_coeffs_out[i]->values[0];
 				plane_a.y() = plane_coeffs_out[i]->values[1];
 				plane_a.z() = plane_coeffs_out[i]->values[2];
@@ -279,9 +299,12 @@ class CloudOps
 						if(pcl::threePlanesIntersection(plane_a,
 									plane_b,
 									plane_c,
-									point_out, 0.08))
+									point_out, epsilon))
 						{
 							
+							// Add corners to list only if 
+							// their x is separated by some distance
+							// TODO: Look for a more elegant way
 							if(corners.size())
 							{
 								int ct;
@@ -314,23 +337,16 @@ class CloudOps
 			ne.compute(*normals_out);
 		}
 
-		void estimateBoundaries(pcl::PointCloud<PointN>::Ptr normals_in, 
-				pcl::PointCloud<PointB>::Ptr boundaries_out)
+		/**
+		 * @brief Filter noise from the cloud using MovingLeastSquares
+		 * @param mls_points Pointer to point normals of point cloud
+		 * @param srcRadius Search radius(in m) to check for anomalies
+		 */
+		void smoothenSurface(pcl::PointCloud<PointN>::Ptr mls_points, 
+				float srcRadius)
 		{
-			typename pcl::template BoundaryEstimation<PointT, PointN, PointB> est;
-
-			est.setInputCloud(curr_cloud);
-			est.setInputNormals(normals_in);
-			est.setRadiusSearch(0.01);
-
-			est.setSearchMethod(typename pcl::search::template KdTree<PointT>::Ptr (new typename pcl::search::template KdTree<PointT>));
-
-			est.compute(*boundaries_out);
-		}
-
-		void smoothenSurface(pcl::PointCloud<PointN>::Ptr mls_points)
-		{
-			typename pcl::search::template KdTree<PointT>::Ptr tree(new typename pcl::search::template KdTree<PointT>);
+			typename pcl::search::template KdTree<PointT>::Ptr tree(
+					new typename pcl::search::template KdTree<PointT>);
 			pcl::MovingLeastSquares<PointT, PointN> mls;
 
 			mls.setComputeNormals(true);
@@ -338,7 +354,7 @@ class CloudOps
 			mls.setInputCloud(curr_cloud);
 			mls.setPolynomialFit(true);
 			mls.setSearchMethod(tree);
-			mls.setSearchRadius(0.03f);
+			mls.setSearchRadius(srcRadius);
 
 			mls.process(*mls_points);
 		}
@@ -395,38 +411,6 @@ class CloudOps
 			//pcl::getMinMax3D(*windows_out, minXY, maxXY);
 			std::cout << "Min X:" << minXY.x << " MinY:" << minXY.y << std::endl;
 			std::cout << "Max X:" << maxXY.x << " MaxY:" << maxXY.y << std::endl;
-		}
-
-		void fitLines(typename pcl::template PointCloud<PointT>::Ptr windows,
-				std::vector<pcl::ModelCoefficients> &window_lines)
-		{
-			pcl::ModelCoefficients line;
-			pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-			typename pcl::template SACSegmentation<PointT> seg;
-			int min_size = 0.2 * windows->points.size();
-			typename pcl::template ExtractIndices<PointT> extr;
-
-			seg.setOptimizeCoefficients(true);
-			seg.setModelType(pcl::SACMODEL_LINE);
-			seg.setMethodType(pcl::SAC_RANSAC);
-			seg.setDistanceThreshold(0.05);
-
-			while(windows->points.size() > min_size)
-			{
-				seg.setInputCloud(windows);
-				seg.segment(*inliers, line);
-				window_lines.push_back(line);
-				if(inliers->indices.size())
-				{
-					typename pcl::template PointCloud<PointT>::Ptr cloud_filt(new pcl::PointCloud<PointT>);
-					extr.setInputCloud(windows);
-					extr.setIndices(inliers);
-					extr.setNegative(true);
-
-					extr.filter(*cloud_filt);
-					windows.swap(cloud_filt);
-				}
-			}
 		}
 
 		/**
