@@ -1,8 +1,8 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/png_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
-#include "pointcloudio.hpp"
-#include "cloud_ops.hpp"
+#include "pointcloudio.h"
+#include "cloud_ops.h"
 #include "../objdet/windowdetector.h"
 #include "dynamixel.h"
 #include "apriltag_utils.h"
@@ -39,8 +39,8 @@ int main(int argc, char **argv)
     pcl::PointCloud<PointColor>::Ptr input_cloud(new pcl::PointCloud<PointColor>);
     pcl::PointCloud<PointColor>::Ptr cloud_out_icp(new pcl::PointCloud<PointColor>);
 	cv::Mat rgbIm;
-	PointCloudIO<PointColor> *pio = new PointCloudIO<PointColor>();
-	CloudOps<PointColor> *co = new CloudOps<PointColor>();
+	PointCloudIO *pio = new PointCloudIO();
+	CloudOps *co = new CloudOps();
 
 	// All the bounding rectangles
 	std::vector<cv::Rect> boundRectOut;
