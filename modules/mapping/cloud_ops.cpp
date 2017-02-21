@@ -75,6 +75,7 @@ void CloudOps::incremental_icp(pcl:: PointCloud<PointColor>::Ptr cloud_out)
 
 	pcl::IterativeClosestPoint<PointColor, PointColor> icp;
 
+	// Set align parameters explicitly
 	icp.setTransformationEpsilon(1e-6);
 	icp.setMaxCorrespondenceDistance(0.5);
 	icp.setMaximumIterations(50);
@@ -105,6 +106,7 @@ void CloudOps::segmentPlanes(pcl:: PointCloud<PointColor>::Ptr cloud_in,
 	pcl:: SACSegmentation<PointColor> seg;
 	pcl:: ExtractIndices<PointColor> extr;
 	float min_points = 0.2f * temp_cloud->points.size();
+	//< Stop segmenting planes after min_points is reached
 
 	seg.setModelType(pcl::SACMODEL_PLANE);
 	seg.setMethodType(pcl::SAC_RANSAC);
@@ -195,7 +197,7 @@ void CloudOps::getIntersectionPoints(
 	Eigen::Vector4f final_mean(.0f, .0f, .0f, .0f);
 	Eigen::Vector3f point_out;
 	/// Segment planes
-	std::vector<pcl:: PointCloud<PointColor>::Ptr> planes_out;
+	std::vector<pcl::PointCloud<PointColor>::Ptr> planes_out;
 	segmentPlanes(cloud_in, planes_out, plane_coeffs_out);
 
 	int num_planes = plane_coeffs_out.size();

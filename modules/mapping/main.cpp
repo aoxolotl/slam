@@ -7,7 +7,7 @@
 #include "dynamixel.h"
 #include "apriltag_utils.h"
 
-#define SERVO_ENABLE 1
+#define SERVO_ENABLE 0
 #define USE_APRILTAG 0
 
 int main(int argc, char **argv)
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 	std::vector<Eigen::Vector3f> corners;
 	int i = 0;
 	// Load trained model for detecting edges
-	// WindowDetector *wd = new WindowDetector("../resources/model.yml");
+	WindowDetector *wd = new WindowDetector("../resources/model.yml");
 	std::cout << "Loaded model" << std::endl;
 
 #if SERVO_ENABLE
@@ -102,6 +102,15 @@ int main(int argc, char **argv)
 	}
 	co->getIntersectionPoints(stitched_cloud, corners, plane_coeffs_out, 0.08);
 	pio->savePointCloud(stitched_cloud, "final_cloud.pcd");
+#else
+	std::vector<pcl::PointCloud<PointColor>::Ptr> planes_out;
+	co->segmentPlanes(input_cloud, planes_out, plane_coeffs_out);
+	pio->savePointCloud(input_cloud, "cloud.pcd");
+
+	// Attempt window detection
+	wd->readImage("rgb.png");
+	wd->detectEdges();
+	wd->detectRectangles(boundRectOut, true);
 #endif
 
 	// Visualizer
@@ -148,7 +157,18 @@ int main(int argc, char **argv)
 
 #else
 	viewer.addPointCloud(input_cloud, "input_cloud");
+
+	for(int i = 0; i < plane_coeffs_out.size(); ++i)
+	{
+		std::stringstream ss;
+
+		ss << "plane_" << i;
+		viewer.addPlane(*(plane_coeffs_out[i]), ss.str());
+		ss.clear();
+		ss.str("");
+	}
 #endif
+
 	while(!viewer.wasStopped())
 		viewer.spinOnce(100);
 

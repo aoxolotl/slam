@@ -90,14 +90,13 @@ int PointCloudIO::getPointCloudAndIm(pcl::PointCloud<PointColor>::Ptr curr_cloud
 			true);
 
 	// Deal with rgb frame
-	cv::Mat(rgb->height, rgb->width, 
-			CV_8UC4, rgb->data).copyTo(rgbIm);
-	cv::cvtColor(rgbIm, grayMat, CV_BGRA2GRAY);
+	cv::Mat(registered.height, registered.width, 
+			CV_8UC4, registered.data).copyTo(rgbIm);
 
 	// Reflect image before saving
-	cv::flip(grayMat, grayMat, 1);
+	cv::flip(rgbIm, rgbIm, 1);
 	// Save gray image for apriltag TODO: Remove later
-	cv::imwrite("gray.pgm", grayMat);
+	cv::imwrite("rgb.png", rgbIm);
 
 	// Kinect image size 512x424
 	float x, y, z, rgbData;
