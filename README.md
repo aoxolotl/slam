@@ -9,3 +9,11 @@ detecting corners of the room. The corners can then be used for path planning or
 localization.
 This gives good results even in environments with limited or sparse features.
 
+## Build
+Depends on `freenect2` for integration with Kinect, OpenCV and PCL for point
+cloud operations.
+```
+$ cd build
+$ cmake ..
+$ make -j
+```
